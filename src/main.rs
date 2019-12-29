@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate diesel;
 
-mod commands;
-mod db;
-mod error;
+pub mod commands;
+pub mod db;
+pub mod error;
 
 fn main() {
     println!("Hello, world!");

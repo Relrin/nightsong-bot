@@ -1,9 +1,9 @@
 use crate::error::Result;
 
-struct RollOptions {
+pub struct RollOptions {
     input: Option<String>,
 }
 
-trait GiveawayStrategy {
+pub trait GiveawayStrategy {
     fn roll(options: &RollOptions) -> Result<String>;
 }
