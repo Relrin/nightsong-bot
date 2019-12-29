@@ -1,21 +1,14 @@
 use std::env;
 
-use serenity::{
-    model::{channel::Message, gateway::Ready},
-    prelude::*,
-};
+use serenity::framework::standard::StandardFramework;
+use serenity::model::gateway::Ready;
+use serenity::prelude::{Client, Context, EventHandler};
+
+use crate::commands::GET_COMMANDS_LIST;
 
 pub struct Handler;
 
 impl EventHandler for Handler {
-    fn message(&self, ctx: Context, msg: Message) {
-        if msg.content == "!ping" {
-            if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!") {
-                println!("Error sending message: {:?}", why);
-            }
-        }
-    }
-
     fn ready(&self, _: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
     }
@@ -24,6 +17,17 @@ impl EventHandler for Handler {
 pub fn run_discord_bot() {
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
     let mut client = Client::new(&token, Handler).expect("Cannot creating Discord client");
+
+    let bot_id = match client.cache_and_http.http.get_current_application_info() {
+        Ok(info) => info.id,
+        Err(why) => panic!("Could not access application info: {:?}", why),
+    };
+
+    client.with_framework(
+        StandardFramework::new()
+            .configure(|c| c.with_whitespace(false).on_mention(Some(bot_id)))
+            .help(&GET_COMMANDS_LIST),
+    );
 
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);
