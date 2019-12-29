@@ -1,0 +1,10 @@
+[package]
+name = "nightsong-bot"
+version = "0.1.0"
+authors = ["Valeryi Savich <relrin78@gmail.com>"]
+edition = "2018"
+description = "The Discord bot for managing server rooms"
+readme = "README.md"
+
+[dependencies]
+diesel = { version = "1.4.3", features = ["postgres", "chrono"] }

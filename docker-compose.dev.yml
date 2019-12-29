@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile_dev
+    image: nightsong-bot-dev
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres/nightsong
+    volumes:
+      - ./:/app/
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    tty: true
+
+  postgres:
+    image: postgres:12.1
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=nightsong
+    tty: true
