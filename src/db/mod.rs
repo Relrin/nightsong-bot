@@ -1,7 +1,7 @@
 #[macro_use]
-pub mod jsonb;
-pub mod models;
-pub mod schema;
-pub mod util;
+mod jsonb;
+mod models;
+mod schema;
+mod util;
 
 pub use crate::db::util::establish_connection;
