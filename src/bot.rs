@@ -15,8 +15,8 @@ impl EventHandler for Handler {
 }
 
 pub fn run_discord_bot() {
-    let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-    let mut client = Client::new(&token, Handler).expect("Cannot creating Discord client");
+    let token = env::var("DISCORD_TOKEN").expect("Expected a DISCORD_TOKEN in the environment");
+    let mut client = Client::new(&token, Handler).expect("Cannot create a Discord client");
 
     let bot_id = match client.cache_and_http.http.get_current_application_info() {
         Ok(info) => info.id,
