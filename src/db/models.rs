@@ -43,3 +43,33 @@ pub struct GiveawayObject {
     object_type: String,
     object_state: String,
 }
+
+pub enum ObjectType {
+    Key,
+    Other,
+}
+
+impl ObjectType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ObjectType::Key => "Key",
+            ObjectType::Other => "Other",
+        }
+    }
+}
+
+pub enum ObjectState {
+    Activated,
+    Pending,
+    Unused,
+}
+
+impl ObjectState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ObjectState::Activated => "Activated",
+            ObjectState::Pending => "Pending",
+            ObjectState::Unused => "Unused",
+        }
+    }
+}

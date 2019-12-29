@@ -6,7 +6,7 @@ use failure::{Backtrace, Context, Fail};
 pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
-struct Error {
+pub struct Error {
     inner: Context<ErrorKind>,
 }
 
@@ -33,7 +33,7 @@ impl Display for Error {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Fail)]
-enum ErrorKind {
+pub enum ErrorKind {
     #[fail(display = "{}", _0)]
     Giveaway(String),
     #[fail(display = "{}", description)]
