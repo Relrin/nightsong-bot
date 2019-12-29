@@ -25,7 +25,11 @@ pub fn run_discord_bot() {
 
     client.with_framework(
         StandardFramework::new()
-            .configure(|c| c.with_whitespace(false).on_mention(Some(bot_id)))
+            .configure(|c| {
+                c.with_whitespace(false)
+                    .on_mention(Some(bot_id))
+                    .prefix("!")
+            })
             .help(&GET_COMMANDS_LIST),
     );
 
