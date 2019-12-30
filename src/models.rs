@@ -19,9 +19,26 @@ impl From<DiscordUser> for Participant {
 
 #[derive(Clone, Debug)]
 pub struct Giveaway {
-    pub description: String,
-    pub participants: HashMap<u64, Box<Participant>>,
-    pub giveaway_objects: Box<Vec<Giveaway>>,
+    description: String,
+    participants: HashMap<u64, Box<Participant>>,
+    giveaway_objects: Box<Vec<Giveaway>>,
+}
+
+impl Giveaway {
+    pub fn with_description(mut self, description: &str) -> Self {
+        self.description = description.to_string();
+        self
+    }
+}
+
+impl Default for Giveaway {
+    fn default() -> Self {
+        Giveaway {
+            description: String::from(""),
+            participants: HashMap::new(),
+            giveaway_objects: Box::new(Vec::new()),
+        }
+    }
 }
 
 impl Eq for Giveaway {}

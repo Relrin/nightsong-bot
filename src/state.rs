@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
-use crate::db::models::Giveaway;
 use crate::error::{Error, ErrorKind, Result};
+use crate::models::Giveaway;
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -29,37 +29,35 @@ impl BotState {
     }
 
     pub fn get_giveaway(&self) -> Result<Option<Giveaway>> {
-        let field_ref = self.giveaway.clone();
-        let value = field_ref.try_read()?;
-        Ok(value.clone())
+        let current_giveaway = self.giveaway.try_read()?;
+        Ok(current_giveaway.clone())
     }
 
-    pub fn set_giveaway(&self, giveaway: Option<Giveaway>) -> Result<&Self> {
-        let old_giveaway = self.get_giveaway()?;
-
-        if let Some(current_giveaway) = old_giveaway {
-            if !current_giveaway.finished {
-                let message = format!(
-                    "Can't create a new giveaway: the previous \
-                     giveaway must be marked as finished before starting another one."
-                );
-                return Err(Error::from(ErrorKind::Giveaway(message)));
-            }
+    pub fn set_giveaway(&self, giveaway: &Giveaway) -> Result<&Self> {
+        if self.get_giveaway()?.is_some() {
+            let message = format!(
+                "Can't create a new giveaway: the previous \
+                 giveaway must be marked as finished before starting another one."
+            );
+            return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
-        let field_ref = self.giveaway.clone();
-        let mut write_lock = field_ref.try_write()?;
-        *write_lock = giveaway;
+        let mut current_giveaway = self.giveaway.try_write()?;
+        *current_giveaway = Some(giveaway.to_owned());
         Ok(&self)
+    }
+
+    pub fn finish_giveaway(&self) -> Result<bool> {
+        let mut current_giveaway = self.giveaway.try_write()?;
+        *current_giveaway = None;
+        Ok(true)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-
-    use crate::db::models::Giveaway;
     use crate::error::{Error, ErrorKind};
+    use crate::models::Giveaway;
     use crate::state::BotState;
 
     #[test]
@@ -75,17 +73,8 @@ mod tests {
     #[test]
     fn test_read_after_giveaway_update() {
         let state = BotState::new();
-        let giveaway = Giveaway {
-            id: 1,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: false,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        state.set_giveaway(Some(giveaway.clone())).unwrap();
+        let giveaway = Giveaway::default().with_description("test giveaway");
+        state.set_giveaway(&giveaway).unwrap();
 
         let result = state.get_giveaway();
         assert_eq!(result.is_ok(), true);
@@ -97,17 +86,8 @@ mod tests {
     #[test]
     fn test_set_giveaway_for_a_new_state() {
         let state = BotState::new();
-        let giveaway = Giveaway {
-            id: 1,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: false,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        let result = state.set_giveaway(Some(giveaway));
+        let giveaway = Giveaway::default().with_description("test giveaway");
+        let result = state.set_giveaway(&giveaway);
 
         assert_eq!(result.is_ok(), true);
         let value = result.unwrap();
@@ -117,17 +97,8 @@ mod tests {
     #[test]
     fn test_set_giveaway_after_the_previous_finished_giveaway() {
         let state = BotState::new();
-        let giveaway_old = Giveaway {
-            id: 1,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: true,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        state.set_giveaway(Some(giveaway_old.clone())).unwrap();
+        let giveaway_old = Giveaway::default().with_description("test giveaway");
+        state.set_giveaway(&giveaway_old).unwrap();
 
         let result_old = state.get_giveaway();
         assert_eq!(result_old.is_ok(), true);
@@ -135,17 +106,9 @@ mod tests {
         assert_eq!(read_giveaway_old.is_some(), true);
         assert_eq!(giveaway_old, read_giveaway_old.unwrap());
 
-        let giveaway_new = Giveaway {
-            id: 2,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: false,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        state.set_giveaway(Some(giveaway_new.clone())).unwrap();
+        state.finish_giveaway().unwrap();
+        let giveaway_new = Giveaway::default().with_description("test giveaway #2");
+        state.set_giveaway(&giveaway_new).unwrap();
 
         let result_new = state.get_giveaway();
         assert_eq!(result_new.is_ok(), true);
@@ -157,17 +120,8 @@ mod tests {
     #[test]
     fn test_set_giveaway_returns_error_for_unfinished_old_giveaway() {
         let state = BotState::new();
-        let giveaway_old = Giveaway {
-            id: 1,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: false,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        state.set_giveaway(Some(giveaway_old.clone())).unwrap();
+        let giveaway_old = Giveaway::default().with_description("test giveaway");
+        state.set_giveaway(&giveaway_old).unwrap();
 
         let result_old = state.get_giveaway();
         assert_eq!(result_old.is_ok(), true);
@@ -175,17 +129,8 @@ mod tests {
         assert_eq!(read_giveaway_old.is_some(), true);
         assert_eq!(giveaway_old, read_giveaway_old.unwrap());
 
-        let giveaway_new = Giveaway {
-            id: 2,
-            description: String::from("test giveaway"),
-            participants: Vec::new(),
-            finished: false,
-            created_at: NaiveDateTime::new(
-                NaiveDate::from_ymd(2020, 1, 1),
-                NaiveTime::from_hms_milli(12, 00, 00, 000),
-            ),
-        };
-        let result_new = state.set_giveaway(Some(giveaway_new.clone()));
+        let giveaway_new = Giveaway::default().with_description("test giveaway #2");
+        let result_new = state.set_giveaway(&giveaway_new);
 
         assert_eq!(result_new.is_err(), true);
         assert_eq!(
