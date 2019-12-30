@@ -1,18 +1,12 @@
-use chrono::NaiveDateTime;
-use diesel::sql_types::Jsonb;
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
 use serenity::model::user::User as DiscordUser;
 
-use crate::db::schema::{giveaway, giveaway_object};
-
-#[derive(Clone, FromSqlRow, AsExpression, Serialize, Deserialize, Debug, Eq, PartialEq)]
-#[sql_type = "Jsonb"]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Participant {
     pub user_id: u64,
     pub username: String,
 }
-
-impl_jsonb_boilerplate!(Participant);
 
 impl From<DiscordUser> for Participant {
     fn from(discord_user: DiscordUser) -> Self {
@@ -23,34 +17,25 @@ impl From<DiscordUser> for Participant {
     }
 }
 
-#[derive(Clone, Identifiable, Queryable, Debug)]
-#[table_name = "giveaway"]
+#[derive(Clone, Debug)]
 pub struct Giveaway {
-    pub id: i32,
     pub description: String,
-    pub participants: Vec<Participant>,
-    pub finished: bool,
-    pub created_at: NaiveDateTime,
+    pub participants: HashMap<u64, Box<Participant>>,
+    pub giveaway_objects: Box<Vec<Giveaway>>,
 }
 
 impl Eq for Giveaway {}
 
 impl PartialEq for Giveaway {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.description == other.description
+        self.description == other.description
             && self.participants == other.participants
-            && self.finished == other.finished
-            && self.created_at == self.created_at
+            && self.giveaway_objects == other.giveaway_objects
     }
 }
 
-#[derive(Clone, Queryable, Associations, Debug, Eq, PartialEq)]
-#[belongs_to(Giveaway)]
-#[table_name = "giveaway_object"]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GiveawayObject {
-    pub id: i32,
-    pub giveaway_id: i32,
     pub value: String,
     pub object_type: String,
     pub object_state: String,
