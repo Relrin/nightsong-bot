@@ -5,7 +5,7 @@ use serenity::model::user::User as DiscordUser;
 
 use crate::db::schema::{giveaway, giveaway_object};
 
-#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Debug)]
+#[derive(Clone, FromSqlRow, AsExpression, Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[sql_type = "Jsonb"]
 pub struct Participant {
     pub user_id: u64,
@@ -23,27 +23,40 @@ impl From<DiscordUser> for Participant {
     }
 }
 
-#[derive(Identifiable, Queryable, Debug)]
+#[derive(Clone, Identifiable, Queryable, Debug)]
 #[table_name = "giveaway"]
 pub struct Giveaway {
-    id: i32,
-    description: String,
-    participants: Vec<Participant>,
-    finished: bool,
-    created_at: NaiveDateTime,
+    pub id: i32,
+    pub description: String,
+    pub participants: Vec<Participant>,
+    pub finished: bool,
+    pub created_at: NaiveDateTime,
 }
 
-#[derive(Queryable, Associations, Debug)]
+impl Eq for Giveaway {}
+
+impl PartialEq for Giveaway {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.description == other.description
+            && self.participants == other.participants
+            && self.finished == other.finished
+            && self.created_at == self.created_at
+    }
+}
+
+#[derive(Clone, Queryable, Associations, Debug, Eq, PartialEq)]
 #[belongs_to(Giveaway)]
 #[table_name = "giveaway_object"]
 pub struct GiveawayObject {
-    id: i32,
-    giveaway_id: i32,
-    value: String,
-    object_type: String,
-    object_state: String,
+    pub id: i32,
+    pub giveaway_id: i32,
+    pub value: String,
+    pub object_type: String,
+    pub object_state: String,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum ObjectType {
     Key,
     Other,
@@ -58,6 +71,7 @@ impl ObjectType {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum ObjectState {
     Activated,
     Pending,

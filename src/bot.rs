@@ -1,10 +1,16 @@
 use std::env;
 
+use lazy_static::lazy_static;
 use serenity::framework::standard::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::prelude::{Client, Context, EventHandler};
 
 use crate::commands::GET_COMMANDS_LIST;
+use crate::state::BotState;
+
+lazy_static! {
+    pub static ref BOT_STATE: BotState = BotState::new();
+}
 
 pub struct Handler;
 
