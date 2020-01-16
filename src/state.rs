@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::models::Giveaway;
@@ -6,30 +6,36 @@ use crate::models::Giveaway;
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct BotState {
-    giveaway: Arc<RwLock<Option<Giveaway>>>,
+    giveaway: Arc<Mutex<Option<Giveaway>>>,
 }
 
 impl Eq for BotState {}
 
 impl PartialEq for BotState {
     fn eq(&self, other: &Self) -> bool {
-        let self_giveaway_ref = self.giveaway.clone();
-        let self_giveaway = self_giveaway_ref.try_read().unwrap();
-        let other_giveaway_ref = other.giveaway.clone();
-        let other_giveaway = other_giveaway_ref.try_read().unwrap();
-        *self_giveaway == *other_giveaway
+        let self_giveaway;
+        {
+            self_giveaway = self.giveaway.lock().unwrap().clone();
+        }
+
+        let other_giveaway;
+        {
+            other_giveaway = other.giveaway.lock().unwrap().clone();
+        }
+
+        self_giveaway == other_giveaway
     }
 }
 
 impl BotState {
     pub fn new() -> Self {
         BotState {
-            giveaway: Arc::new(RwLock::new(None)),
+            giveaway: Arc::new(Mutex::new(None)),
         }
     }
 
     pub fn get_giveaway(&self) -> Result<Option<Giveaway>> {
-        let current_giveaway = self.giveaway.try_read()?;
+        let mut current_giveaway = self.giveaway.lock().unwrap();
         Ok(current_giveaway.clone())
     }
 
@@ -42,13 +48,13 @@ impl BotState {
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
-        let mut current_giveaway = self.giveaway.try_write()?;
+        let mut current_giveaway = self.giveaway.lock().unwrap();
         *current_giveaway = Some(giveaway.to_owned());
         Ok(&self)
     }
 
     pub fn finish_giveaway(&self) -> Result<bool> {
-        let mut current_giveaway = self.giveaway.try_write()?;
+        let mut current_giveaway = self.giveaway.lock().unwrap();
         *current_giveaway = None;
         Ok(true)
     }
