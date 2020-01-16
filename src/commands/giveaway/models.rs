@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serenity::model::user::User as DiscordUser;
 
-use crate::util::parse_message;
+use crate::commands::giveaway::util::parse_message;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Participant {

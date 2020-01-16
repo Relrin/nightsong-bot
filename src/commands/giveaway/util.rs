@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::models::ObjectType;
+use crate::commands::giveaway::models::ObjectType;
 
 lazy_static! {
     static ref KEY_REGEX: Regex =
@@ -52,8 +52,8 @@ pub fn parse_message(text: &str) -> ParsedInput {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::ObjectType;
-    use crate::util::parse_message;
+    use crate::commands::giveaway::models::ObjectType;
+    use crate::commands::giveaway::util::parse_message;
 
     #[test]
     fn test_parse_empty_string() {

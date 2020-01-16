@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::models::Giveaway;
+use crate::commands::giveaway::models::Giveaway;
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -35,7 +35,7 @@ impl BotState {
     }
 
     pub fn get_giveaway(&self) -> Result<Option<Giveaway>> {
-        let mut current_giveaway = self.giveaway.lock().unwrap();
+        let current_giveaway = self.giveaway.lock().unwrap();
         Ok(current_giveaway.clone())
     }
 
@@ -63,7 +63,7 @@ impl BotState {
 #[cfg(test)]
 mod tests {
     use crate::error::{Error, ErrorKind};
-    use crate::models::Giveaway;
+    use crate::commands::giveaway::models::Giveaway;
     use crate::state::BotState;
 
     #[test]
