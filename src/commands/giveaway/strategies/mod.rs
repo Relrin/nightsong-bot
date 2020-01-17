@@ -1,9 +1,4 @@
-use crate::error::Result;
+pub mod base;
 
-pub struct RollOptions {
-    input: Option<String>,
-}
+pub use crate::commands::giveaway::strategies::base::{GiveawayStrategy, RollOptions};
 
-pub trait GiveawayStrategy {
-    fn roll(options: &RollOptions) -> Result<String>;
-}
