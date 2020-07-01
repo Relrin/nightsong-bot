@@ -1,5 +1,5 @@
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use serenity::model::user::User as DiscordUser;
 
@@ -32,9 +32,10 @@ impl From<DiscordUser> for Participant {
 
 #[derive(Clone, Debug)]
 pub struct Giveaway {
+    // TODO: Add owner
     description: String,
-    participants: RefCell<HashMap<u64, Box<Participant>>>,
-    giveaway_objects: RefCell<Box<Vec<GiveawayObject>>>,
+    participants: Arc<Mutex<HashMap<u64, Box<Participant>>>>,
+    giveaway_objects: Arc<Mutex<Box<Vec<Arc<Box<GiveawayObject>>>>>>,
 }
 
 impl Giveaway {
@@ -45,42 +46,59 @@ impl Giveaway {
 
     pub fn get_current_participants(&self) -> Vec<String> {
         self.participants
-            .borrow()
+            .clone()
+            .lock()
+            .unwrap()
             .iter()
             .map(|(_, participant)| participant.get_username())
             .collect()
     }
 
     pub fn is_participant(&self, user: &DiscordUser) -> bool {
-        self.participants.borrow().contains_key(&user.id.0)
+        self.participants
+            .clone()
+            .lock()
+            .unwrap()
+            .contains_key(&user.id.0)
     }
 
     pub fn add_participant(&self, user: &DiscordUser) {
         let participant = Box::new(Participant::from(user.clone()));
         self.participants
-            .borrow_mut()
+            .clone()
+            .lock()
+            .unwrap()
             .insert(user.id.0, participant);
     }
 
     pub fn remove_participant(&self, user: &DiscordUser) {
-        self.participants.borrow_mut().remove(&user.id.0);
+        self.participants.clone().lock().unwrap().remove(&user.id.0);
     }
 
     pub fn get_current_giveaway_objects(&self) -> Vec<String> {
         self.giveaway_objects
-            .borrow()
+            .clone()
+            .lock()
+            .unwrap()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect()
     }
 
     pub fn add_giveaway_object(&self, obj: &GiveawayObject) {
-        self.giveaway_objects.borrow_mut().push(obj.clone());
+        self.giveaway_objects
+            .clone()
+            .lock()
+            .unwrap()
+            .push(Arc::new(Box::new(obj.clone())));
     }
 
     pub fn remove_giveaway_object_by_index(&self, index: usize) {
-        if index > 0 && index < self.giveaway_objects.borrow().len() + 1 {
-            self.giveaway_objects.borrow_mut().remove(index - 1);
+        let ref_giveaways = self.giveaway_objects.clone();
+        let mut guard_giveaways = ref_giveaways.lock().unwrap();
+
+        if index > 0 && index < guard_giveaways.len() + 1 {
+            guard_giveaways.remove(index - 1);
         }
     }
 }
@@ -89,8 +107,8 @@ impl Default for Giveaway {
     fn default() -> Self {
         Giveaway {
             description: String::from(""),
-            participants: RefCell::new(HashMap::new()),
-            giveaway_objects: RefCell::new(Box::new(Vec::new())),
+            participants: Arc::new(Mutex::new(HashMap::new())),
+            giveaway_objects: Arc::new(Mutex::new(Box::new(Vec::new()))),
         }
     }
 }
@@ -99,9 +117,29 @@ impl Eq for Giveaway {}
 
 impl PartialEq for Giveaway {
     fn eq(&self, other: &Self) -> bool {
+        let self_participants;
+        {
+            self_participants = self.participants.lock().unwrap().clone();
+        }
+
+        let self_giveaway_objects;
+        {
+            self_giveaway_objects = self.giveaway_objects.lock().unwrap().clone();
+        }
+
+        let other_participants;
+        {
+            other_participants = other.participants.lock().unwrap().clone();
+        }
+
+        let other_giveaway_objects;
+        {
+            other_giveaway_objects = other.giveaway_objects.lock().unwrap().clone();
+        }
+
         self.description == other.description
-            && self.participants == other.participants
-            && self.giveaway_objects == other.giveaway_objects
+            && self_participants == other_participants
+            && self_giveaway_objects == other_giveaway_objects
     }
 }
 
@@ -111,7 +149,7 @@ pub struct GiveawayObject {
     description: Option<String>,
     object_info: Option<String>,
     object_type: ObjectType,
-    object_state: Cell<ObjectState>,
+    object_state: ObjectState,
 }
 
 impl GiveawayObject {
@@ -123,7 +161,7 @@ impl GiveawayObject {
             description: parse_result.description.clone(),
             object_info: parse_result.object_info.clone(),
             object_type: parse_result.object_type,
-            object_state: Cell::new(ObjectState::Unused),
+            object_state: ObjectState::Unused,
         }
     }
 
@@ -136,11 +174,11 @@ impl GiveawayObject {
     }
 
     pub fn get_object_state(&self) -> ObjectState {
-        self.object_state.get()
+        self.object_state
     }
 
-    pub fn set_object_state(&self, state: ObjectState) {
-        self.object_state.set(state);
+    pub fn set_object_state(&mut self, state: ObjectState) {
+        self.object_state = state;
     }
 
     pub fn pretty_print(&self) -> String {
@@ -152,29 +190,29 @@ impl GiveawayObject {
                     None => format!("{}", self.value),
                 };
 
-                match self.object_state.get() {
+                match self.object_state {
                     // When is Activated show what was hidden behind the key
                     ObjectState::Activated => format!(
                         "{}{} -> {}",
-                        self.object_state.get().as_str(),
+                        self.object_state.as_str(),
                         key,
                         self.description.clone().unwrap_or(String::from("")),
                     ),
                     // For Unused/Pending states print minimal amount of info
-                    _ => format!("{} {}", self.object_state.get().as_str(), key),
+                    _ => format!("{} {}", self.object_state.as_str(), key),
                 }
             }
             // Print any non-keys as is
             ObjectType::Other => format!(
                 "{} {}{}",
-                self.object_state.get().as_str(),
+                self.object_state.as_str(),
                 self.value,
                 self.description.clone().unwrap_or(String::from("")),
             ),
         };
 
         // If the object was taken by someone, then cross out the text
-        match self.object_state.get() == ObjectState::Activated {
+        match self.object_state == ObjectState::Activated {
             true => format!("~~{}~~", text),
             false => text,
         }
@@ -394,7 +432,7 @@ mod tests {
     #[test]
     fn test_set_giveaway_object_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let mut giveaway_object = GiveawayObject::new(text);
 
         assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused);
         giveaway_object.set_object_state(ObjectState::Pending);
@@ -404,7 +442,7 @@ mod tests {
     #[test]
     fn test_set_giveaway_object_state_for_other_type() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let mut giveaway_object = GiveawayObject::new(text);
 
         assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused);
         giveaway_object.set_object_state(ObjectState::Pending);
@@ -425,7 +463,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_the_giveaway_object_in_the_pending_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let mut giveaway_object = GiveawayObject::new(text);
 
         giveaway_object.set_object_state(ObjectState::Pending);
         assert_eq!(
@@ -437,7 +475,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_the_giveaway_object_in_the_activated_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let mut giveaway_object = GiveawayObject::new(text);
 
         giveaway_object.set_object_state(ObjectState::Activated);
         assert_eq!(
@@ -457,7 +495,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_an_unknown_object_in_the_activated_state() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let mut giveaway_object = GiveawayObject::new(text);
 
         giveaway_object.set_object_state(ObjectState::Activated);
         assert_eq!(giveaway_object.pretty_print(), "~~[+] just a text~~");
