@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use crate::error::{Error, ErrorKind, Result};
 use crate::commands::giveaway::models::Giveaway;
+use crate::error::{Error, ErrorKind, Result};
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct BotState {
-    giveaway: Arc<Mutex<Option<Giveaway>>>,
+    giveaway: HashMap<u64, Giveaway>,
 }
 
 impl Eq for BotState {}
@@ -62,8 +62,8 @@ impl BotState {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::{Error, ErrorKind};
     use crate::commands::giveaway::models::Giveaway;
+    use crate::error::{Error, ErrorKind};
     use crate::state::BotState;
 
     #[test]

@@ -5,7 +5,7 @@ use serenity::framework::standard::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::prelude::{Client, Context, EventHandler};
 
-use crate::commands::GET_COMMANDS_LIST;
+use crate::commands::{GET_COMMANDS_LIST, GIVEAWAY_GROUP};
 use crate::state::BotState;
 
 lazy_static! {
@@ -36,7 +36,8 @@ pub fn run_discord_bot() {
                     .on_mention(Some(bot_id))
                     .prefix("!")
             })
-            .help(&GET_COMMANDS_LIST),
+            .help(&GET_COMMANDS_LIST)
+            .group(&GIVEAWAY_GROUP),
     );
 
     if let Err(why) = client.start() {

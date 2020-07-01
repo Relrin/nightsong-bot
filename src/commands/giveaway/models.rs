@@ -44,7 +44,8 @@ impl Giveaway {
     }
 
     pub fn get_current_participants(&self) -> Vec<String> {
-        self.participants.borrow()
+        self.participants
+            .borrow()
             .iter()
             .map(|(_, participant)| participant.get_username())
             .collect()
@@ -56,7 +57,9 @@ impl Giveaway {
 
     pub fn add_participant(&self, user: &DiscordUser) {
         let participant = Box::new(Participant::from(user.clone()));
-        self.participants.borrow_mut().insert(user.id.0, participant);
+        self.participants
+            .borrow_mut()
+            .insert(user.id.0, participant);
     }
 
     pub fn remove_participant(&self, user: &DiscordUser) {
@@ -64,7 +67,8 @@ impl Giveaway {
     }
 
     pub fn get_current_giveaway_objects(&self) -> Vec<String> {
-        self.giveaway_objects.borrow()
+        self.giveaway_objects
+            .borrow()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect()
@@ -157,11 +161,7 @@ impl GiveawayObject {
                         self.description.clone().unwrap_or(String::from("")),
                     ),
                     // For Unused/Pending states print minimal amount of info
-                    _ => format!(
-                        "{} {}",
-                        self.object_state.get().as_str(),
-                        key
-                    ),
+                    _ => format!("{} {}", self.object_state.get().as_str(), key),
                 }
             }
             // Print any non-keys as is
@@ -209,7 +209,7 @@ mod tests {
     use serenity::model::id::UserId;
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
-    use crate::commands::giveaway::models::{Giveaway, GiveawayObject, ObjectType, ObjectState};
+    use crate::commands::giveaway::models::{Giveaway, GiveawayObject, ObjectState, ObjectType};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
@@ -276,9 +276,18 @@ mod tests {
         giveaway.add_giveaway_object(&giveaway_object_3);
 
         let giveaway_objects = giveaway.get_current_giveaway_objects();
-        assert_eq!(giveaway_objects.contains(&giveaway_object_1.pretty_print()), true);
-        assert_eq!(giveaway_objects.contains(&giveaway_object_2.pretty_print()), true);
-        assert_eq!(giveaway_objects.contains(&giveaway_object_3.pretty_print()), true);
+        assert_eq!(
+            giveaway_objects.contains(&giveaway_object_1.pretty_print()),
+            true
+        );
+        assert_eq!(
+            giveaway_objects.contains(&giveaway_object_2.pretty_print()),
+            true
+        );
+        assert_eq!(
+            giveaway_objects.contains(&giveaway_object_3.pretty_print()),
+            true
+        );
     }
 
     #[test]
@@ -299,7 +308,10 @@ mod tests {
 
         giveaway.add_giveaway_object(&giveaway_object);
         let updated_giveaway_objects = giveaway.get_current_giveaway_objects();
-        assert_eq!(updated_giveaway_objects.contains(&giveaway_object.pretty_print()), true);
+        assert_eq!(
+            updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
+            true
+        );
     }
 
     #[test]
@@ -312,11 +324,17 @@ mod tests {
 
         giveaway.add_giveaway_object(&giveaway_object);
         let updated_giveaway_objects = giveaway.get_current_giveaway_objects();
-        assert_eq!(updated_giveaway_objects.contains(&giveaway_object.pretty_print()), true);
+        assert_eq!(
+            updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
+            true
+        );
 
         giveaway.remove_giveaway_object_by_index(1);
         let latest_giveaway_objects = giveaway.get_current_giveaway_objects();
-        assert_eq!(latest_giveaway_objects.contains(&giveaway_object.pretty_print()), false);
+        assert_eq!(
+            latest_giveaway_objects.contains(&giveaway_object.pretty_print()),
+            false
+        );
         assert_eq!(latest_giveaway_objects.is_empty(), true);
     }
 
@@ -327,7 +345,10 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let giveaway_object = GiveawayObject::new(text);
 
-        assert_eq!(giveaway_object.get_value().as_str(), "AAAAA-BBBBB-CCCCC-DDDD")
+        assert_eq!(
+            giveaway_object.get_value().as_str(),
+            "AAAAA-BBBBB-CCCCC-DDDD"
+        )
     }
 
     #[test]
@@ -395,7 +416,10 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let giveaway_object = GiveawayObject::new(text);
 
-        assert_eq!(giveaway_object.pretty_print(), "[ ] AAAAA-BBBBB-CCCCC-DDDD [Store]");
+        assert_eq!(
+            giveaway_object.pretty_print(),
+            "[ ] AAAAA-BBBBB-CCCCC-DDDD [Store]"
+        );
     }
 
     #[test]
@@ -404,7 +428,10 @@ mod tests {
         let giveaway_object = GiveawayObject::new(text);
 
         giveaway_object.set_object_state(ObjectState::Pending);
-        assert_eq!(giveaway_object.pretty_print(), "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]");
+        assert_eq!(
+            giveaway_object.pretty_print(),
+            "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]"
+        );
     }
 
     #[test]
@@ -413,7 +440,10 @@ mod tests {
         let giveaway_object = GiveawayObject::new(text);
 
         giveaway_object.set_object_state(ObjectState::Activated);
-        assert_eq!(giveaway_object.pretty_print(), "~~[+]AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~");
+        assert_eq!(
+            giveaway_object.pretty_print(),
+            "~~[+]AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
+        );
     }
 
     #[test]
