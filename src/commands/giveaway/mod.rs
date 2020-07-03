@@ -1,6 +1,7 @@
-pub mod handler;
+pub mod handlers;
 pub mod models;
+pub mod storage;
 pub mod strategies;
-pub mod util;
+pub mod utils;
 
-pub use crate::commands::giveaway::handler::GIVEAWAY_GROUP;
+pub use crate::commands::giveaway::handlers::GIVEAWAY_GROUP;

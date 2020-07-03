@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use serenity::model::user::User as DiscordUser;
 
-use crate::commands::giveaway::util::parse_message;
+use crate::commands::giveaway::utils::parse_message;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Participant {
@@ -32,13 +32,22 @@ impl From<DiscordUser> for Participant {
 
 #[derive(Clone, Debug)]
 pub struct Giveaway {
-    // TODO: Add owner
+    owner: Participant,
     description: String,
     participants: Arc<Mutex<HashMap<u64, Box<Participant>>>>,
     giveaway_objects: Arc<Mutex<Box<Vec<Arc<Box<GiveawayObject>>>>>>,
 }
 
 impl Giveaway {
+    pub fn new(discord_user: &DiscordUser) -> Self {
+        Giveaway {
+            owner: Participant::from(discord_user.clone()),
+            description: String::from(""),
+            participants: Arc::new(Mutex::new(HashMap::new())),
+            giveaway_objects: Arc::new(Mutex::new(Box::new(Vec::new()))),
+        }
+    }
+
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = description.to_string();
         self
@@ -99,16 +108,6 @@ impl Giveaway {
 
         if index > 0 && index < guard_giveaways.len() + 1 {
             guard_giveaways.remove(index - 1);
-        }
-    }
-}
-
-impl Default for Giveaway {
-    fn default() -> Self {
-        Giveaway {
-            description: String::from(""),
-            participants: Arc::new(Mutex::new(HashMap::new())),
-            giveaway_objects: Arc::new(Mutex::new(Box::new(Vec::new()))),
         }
     }
 }
@@ -263,7 +262,7 @@ mod tests {
         let user_1 = get_user(1, "User 1");
         let user_2 = get_user(2, "User 2 ");
         let user_3 = get_user(3, "User 3");
-        let giveaway = Giveaway::default();
+        let giveaway = Giveaway::new(&user_1);
         giveaway.add_participant(&user_1.clone());
         giveaway.add_participant(&user_2.clone());
         giveaway.add_participant(&user_3.clone());
@@ -276,7 +275,8 @@ mod tests {
 
     #[test]
     fn test_get_current_participants_for_a_new_giveaway() {
-        let giveaway = Giveaway::default();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
 
         let participants = giveaway.get_current_participants();
         assert_eq!(participants.is_empty(), true);
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_add_participant_to_the_giveaway() {
         let user = get_user(1, "Test");
-        let giveaway = Giveaway::default();
+        let giveaway = Giveaway::new(&user);
 
         giveaway.add_participant(&user.clone());
         assert_eq!(giveaway.is_participant(&user.clone()), true);
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_remove_participant_from_the_giveaway() {
         let user = get_user(1, "Test");
-        let giveaway = Giveaway::default();
+        let giveaway = Giveaway::new(&user);
 
         giveaway.add_participant(&user.clone());
         assert_eq!(giveaway.is_participant(&user.clone()), true);
@@ -305,10 +305,11 @@ mod tests {
 
     #[test]
     fn test_get_current_giveaway_objects() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
         let giveaway_object_1 = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
         let giveaway_object_2 = GiveawayObject::new("BBBBB-CCCCC-DDDDD-FFFF [Store] -> Some game");
         let giveaway_object_3 = GiveawayObject::new("CCCCC-DDDDD-FFFFF-EEEE [Store] -> Some game");
-        let giveaway = Giveaway::default();
         giveaway.add_giveaway_object(&giveaway_object_1);
         giveaway.add_giveaway_object(&giveaway_object_2);
         giveaway.add_giveaway_object(&giveaway_object_3);
@@ -330,7 +331,8 @@ mod tests {
 
     #[test]
     fn test_get_current_giveaway_objects_for_a_new_giveaway() {
-        let giveaway = Giveaway::default();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
 
         let giveaway_objects = giveaway.get_current_giveaway_objects();
         assert_eq!(giveaway_objects.is_empty(), true);
@@ -338,8 +340,9 @@ mod tests {
 
     #[test]
     fn test_add_giveaway_object_to_the_giveaway() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
         let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
-        let giveaway = Giveaway::default();
 
         let old_giveaway_objects = giveaway.get_current_giveaway_objects();
         assert_eq!(old_giveaway_objects.is_empty(), true);
@@ -354,8 +357,9 @@ mod tests {
 
     #[test]
     fn test_remove_giveaway_object_by_index_from_the_giveaway() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
         let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
-        let giveaway = Giveaway::default();
 
         let old_giveaway_objects = giveaway.get_current_giveaway_objects();
         assert_eq!(old_giveaway_objects.is_empty(), true);

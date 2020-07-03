@@ -53,7 +53,7 @@ pub fn parse_message(text: &str) -> ParsedInput {
 #[cfg(test)]
 mod tests {
     use crate::commands::giveaway::models::ObjectType;
-    use crate::commands::giveaway::util::parse_message;
+    use crate::commands::giveaway::utils::parse_message;
 
     #[test]
     fn test_parse_empty_string() {

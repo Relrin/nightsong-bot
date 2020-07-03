@@ -5,13 +5,13 @@ use crate::error::{Error, ErrorKind, Result};
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct BotState {
+pub struct GiveawayManager {
     giveaways: Arc<Mutex<Vec<Arc<Box<Giveaway>>>>>,
 }
 
-impl BotState {
+impl GiveawayManager {
     pub fn new() -> Self {
-        BotState {
+        GiveawayManager {
             giveaways: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -44,13 +44,23 @@ impl BotState {
 
 #[cfg(test)]
 mod tests {
+    use serenity::model::id::UserId;
+    use serenity::model::user::{CurrentUser, User as DiscordUser};
+
     use crate::commands::giveaway::models::Giveaway;
+    use crate::commands::giveaway::storage::GiveawayManager;
     use crate::error::{Error, ErrorKind};
-    use crate::state::BotState;
+
+    fn get_user(user_id: u64, username: &str) -> DiscordUser {
+        let mut current_user = CurrentUser::default();
+        current_user.id = UserId(user_id);
+        current_user.name = username.to_owned();
+        DiscordUser::from(current_user)
+    }
 
     #[test]
     fn test_read_an_new_state() {
-        let state = BotState::new();
+        let state = GiveawayManager::new();
         let giveaways = state.get_giveaways();
 
         assert_eq!(giveaways.len(), 0);
@@ -58,12 +68,13 @@ mod tests {
 
     #[test]
     fn test_read_after_giveaway_update() {
-        let state = BotState::new();
+        let state = GiveawayManager::new();
 
         let mut giveaways = state.get_giveaways();
         assert_eq!(giveaways.len(), 0);
 
-        let giveaway = Giveaway::default().with_description("test giveaway");
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
         state.add_giveaway(giveaway);
         giveaways = state.get_giveaways();
         assert_eq!(giveaways.len(), 1);
@@ -71,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_get_error_for_invalid_index() {
-        let state = BotState::new();
+        let state = GiveawayManager::new();
 
         let result_new = state.get_giveaway_by_index(10);
         assert_eq!(result_new.is_err(), true);

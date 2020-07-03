@@ -1,16 +1,13 @@
 use std::env;
+use std::sync::Arc;
 
-use lazy_static::lazy_static;
 use serenity::framework::standard::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::prelude::{Client, Context, EventHandler};
 
+use crate::commands::giveaway::storage::GiveawayManager;
 use crate::commands::{GET_COMMANDS_LIST, GIVEAWAY_GROUP};
-use crate::state::BotState;
-
-lazy_static! {
-    pub static ref BOT_STATE: BotState = BotState::new();
-}
+use crate::storage::GiveawayStore;
 
 pub struct Handler;
 
@@ -28,6 +25,11 @@ pub fn run_discord_bot() {
         Ok(info) => info.id,
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
+
+    {
+        let mut data = client.data.write();
+        data.insert::<GiveawayStore>(Arc::new(GiveawayManager::new()));
+    }
 
     client.with_framework(
         StandardFramework::new()
