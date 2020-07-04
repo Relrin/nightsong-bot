@@ -32,6 +32,7 @@ impl From<DiscordUser> for Participant {
 
 #[derive(Clone, Debug)]
 pub struct Giveaway {
+    active: bool,
     owner: Participant,
     description: String,
     participants: Arc<Mutex<HashMap<u64, Box<Participant>>>>,
@@ -41,6 +42,7 @@ pub struct Giveaway {
 impl Giveaway {
     pub fn new(discord_user: &DiscordUser) -> Self {
         Giveaway {
+            active: false,
             owner: Participant::from(discord_user.clone()),
             description: String::from(""),
             participants: Arc::new(Mutex::new(HashMap::new())),
@@ -50,6 +52,16 @@ impl Giveaway {
 
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = description.to_string();
+        self
+    }
+
+    pub fn activate(mut self) -> Self {
+        self.active = true;
+        self
+    }
+
+    pub fn deactivate(mut self) -> Self {
+        self.active = false;
         self
     }
 
@@ -109,6 +121,14 @@ impl Giveaway {
         if index > 0 && index < guard_giveaways.len() + 1 {
             guard_giveaways.remove(index - 1);
         }
+    }
+
+    pub fn pretty_print(&self) -> String {
+        format!(
+            "{} [owner: <@{}>]",
+            self.description,
+            self.owner.get_user_id(),
+        )
     }
 }
 
