@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use serenity::model::user::User as DiscordUser;
+
 use crate::commands::giveaway::models::Giveaway;
 use crate::error::{Error, ErrorKind, Result};
 
@@ -29,7 +31,29 @@ impl GiveawayManager {
         match index > 0 && index < guard_giveaways.len() + 1 {
             true => Ok(guard_giveaways[index].clone()),
             false => {
-                let message = format!("The requested giveaway was not found or doesn't exist.");
+                let message = format!("The requested giveaway was not found.");
+                Err(Error::from(ErrorKind::Giveaway(message)))
+            }
+        }
+    }
+
+    pub fn delete_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
+        let ref_giveaways = self.giveaways.clone();
+        let mut guard_giveaways = ref_giveaways.lock().unwrap();
+
+        match index > 0 && index < guard_giveaways.len() + 1 {
+            true => {
+                if user.id.0 != guard_giveaways[index - 1].owner().get_user_id() {
+                    let message =
+                        format!("For deleting this giveaway you need to be an its owner.");
+                    return Err(Error::from(ErrorKind::Giveaway(message)));
+                }
+
+                guard_giveaways.remove(index - 1);
+                Ok(())
+            }
+            false => {
+                let message = format!("The requested giveaway was not found.");
                 Err(Error::from(ErrorKind::Giveaway(message)))
             }
         }
@@ -60,36 +84,81 @@ mod tests {
 
     #[test]
     fn test_read_an_new_state() {
-        let state = GiveawayManager::new();
-        let giveaways = state.get_giveaways();
+        let manager = GiveawayManager::new();
+        let giveaways = manager.get_giveaways();
 
         assert_eq!(giveaways.len(), 0);
     }
 
     #[test]
     fn test_read_after_giveaway_update() {
-        let state = GiveawayManager::new();
+        let manager = GiveawayManager::new();
 
-        let mut giveaways = state.get_giveaways();
+        let mut giveaways = manager.get_giveaways();
         assert_eq!(giveaways.len(), 0);
 
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
-        state.add_giveaway(giveaway);
-        giveaways = state.get_giveaways();
+        manager.add_giveaway(giveaway);
+        giveaways = manager.get_giveaways();
         assert_eq!(giveaways.len(), 1);
     }
 
     #[test]
-    fn test_get_error_for_invalid_index() {
-        let state = GiveawayManager::new();
+    fn test_get_error_for_invalid_index_on_read() {
+        let manager = GiveawayManager::new();
 
-        let result_new = state.get_giveaway_by_index(10);
-        assert_eq!(result_new.is_err(), true);
+        let result = manager.get_giveaway_by_index(10);
+        assert_eq!(result.is_err(), true);
         assert_eq!(
-            result_new.unwrap_err(),
+            result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
-                "The requested giveaway was not found or doesn't exist."
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_delete_giveaway() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.delete_giveaway(&user, 1);
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), ());
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_owner_on_deletion() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let user = get_user(2, "Test");
+        let result = manager.delete_giveaway(&user, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "For deleting this giveaway you need to be an its owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_index_on_deletion() {
+        let manager = GiveawayManager::new();
+
+        let user = get_user(1, "Test");
+        let result = manager.delete_giveaway(&user, 10);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
             )))
         );
     }

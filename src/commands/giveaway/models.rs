@@ -55,6 +55,10 @@ impl Giveaway {
         self
     }
 
+    pub fn owner(&self) -> &Participant {
+        &self.owner
+    }
+
     pub fn activate(mut self) -> Self {
         self.active = true;
         self

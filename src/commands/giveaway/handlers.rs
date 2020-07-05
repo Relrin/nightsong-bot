@@ -39,7 +39,7 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
 
     let content = match giveaways.len() {
         0 => "There are no active giveaways.".to_string(),
-        _ => giveaways.join("\n"),
+        _ => format!("Giveaways:\n{}", giveaways.join("\n")),
     };
 
     let message = MessageBuilder::new().push(content).build();
@@ -53,7 +53,7 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!new-giveaway \"description\"")]
+#[example("!new-giveaway <\"description\">")]
 #[description = "Create a new giveaway"]
 fn new_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let description = args
@@ -73,7 +73,8 @@ fn new_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
         .expect("Expected GiveawayManager in ShareMap.");
 
     giveaway_manager.add_giveaway(giveaway);
-    msg.reply(ctx, "Successfully added!")?;
+    msg.channel_id
+        .say(&ctx.http, "The giveaway has been added!")?;
 
     Ok(())
 }
@@ -96,8 +97,36 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command("finish-giveaway")]
 #[aliases("fga")]
+#[min_args(1)]
+#[max_args(1)]
+#[help_available]
+#[example("!finish-giveaway <number>")]
 #[description = "Finish and delete a giveaway by the given number"]
-fn finish_giveaway(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "finish")?;
+fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "An argument for the `finish-giveaway` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.delete_giveaway(&msg.author, index) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The giveaway has been finished.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
     Ok(())
 }
