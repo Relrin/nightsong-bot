@@ -81,17 +81,73 @@ fn new_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 
 #[command("start-giveaway")]
 #[aliases("sga")]
+#[min_args(1)]
+#[max_args(1)]
+#[help_available]
+#[example("!start-giveaway <number>")]
 #[description = "Start a giveaway"]
-fn start_giveaway(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "new")?;
+fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "An argument for the `start-giveaway` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.activate_giveaway(&msg.author, index) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The giveaway has been started.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
     Ok(())
 }
 
 #[command("deactivate-giveaway")]
 #[aliases("dga")]
+#[min_args(1)]
+#[max_args(1)]
+#[help_available]
+#[example("!deactivate-giveaway <number>")]
 #[description = "Start a giveaway by the given number"]
-fn deactivate_giveaway(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "deactivate")?;
+fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "An argument for the `deactivate-giveaway` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.deactivate_giveaway(&msg.author, index) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The giveaway has been deactivated.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
     Ok(())
 }
 

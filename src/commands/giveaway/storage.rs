@@ -37,6 +37,30 @@ impl GiveawayManager {
         }
     }
 
+    pub fn activate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+
+        if user.id.0 != giveaway.owner().get_user_id() {
+            let message = format!("For interacting with this giveaway you need to be its owner.");
+            return Err(Error::from(ErrorKind::Giveaway(message)));
+        }
+
+        giveaway.activate();
+        Ok(())
+    }
+
+    pub fn deactivate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
+        let giveaway = self.get_giveaway_by_index(index)?.clone();
+
+        if user.id.0 != giveaway.owner().get_user_id() {
+            let message = format!("For interacting with this giveaway you need to be its owner.");
+            return Err(Error::from(ErrorKind::Giveaway(message)));
+        }
+
+        giveaway.deactivate();
+        Ok(())
+    }
+
     pub fn delete_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let ref_giveaways = self.giveaways.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
@@ -44,8 +68,7 @@ impl GiveawayManager {
         match index > 0 && index < guard_giveaways.len() + 1 {
             true => {
                 if user.id.0 != guard_giveaways[index - 1].owner().get_user_id() {
-                    let message =
-                        format!("For deleting this giveaway you need to be an its owner.");
+                    let message = format!("For deleting this giveaway you need to be its owner.");
                     return Err(Error::from(ErrorKind::Giveaway(message)));
                 }
 
@@ -143,7 +166,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
-                "For deleting this giveaway you need to be an its owner."
+                "For deleting this giveaway you need to be its owner."
             )))
         );
     }

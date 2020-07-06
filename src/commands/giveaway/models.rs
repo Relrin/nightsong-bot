@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serenity::model::user::User as DiscordUser;
@@ -32,7 +33,7 @@ impl From<DiscordUser> for Participant {
 
 #[derive(Clone, Debug)]
 pub struct Giveaway {
-    active: bool,
+    active: Arc<AtomicBool>,
     owner: Participant,
     description: String,
     participants: Arc<Mutex<HashMap<u64, Box<Participant>>>>,
@@ -42,7 +43,7 @@ pub struct Giveaway {
 impl Giveaway {
     pub fn new(discord_user: &DiscordUser) -> Self {
         Giveaway {
-            active: false,
+            active: Arc::new(AtomicBool::new(false)),
             owner: Participant::from(discord_user.clone()),
             description: String::from(""),
             participants: Arc::new(Mutex::new(HashMap::new())),
@@ -59,14 +60,12 @@ impl Giveaway {
         &self.owner
     }
 
-    pub fn activate(mut self) -> Self {
-        self.active = true;
-        self
+    pub fn activate(&self) {
+        self.active.store(true, Ordering::SeqCst)
     }
 
-    pub fn deactivate(mut self) -> Self {
-        self.active = false;
-        self
+    pub fn deactivate(&self) {
+        self.active.store(false, Ordering::SeqCst);
     }
 
     pub fn get_current_participants(&self) -> Vec<String> {
