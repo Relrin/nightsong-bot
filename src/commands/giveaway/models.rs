@@ -60,6 +60,10 @@ impl Giveaway {
         &self.owner
     }
 
+    pub fn is_activated(&self) -> bool {
+        self.active.load(Ordering::SeqCst)
+    }
+
     pub fn activate(&self) {
         self.active.store(true, Ordering::SeqCst)
     }

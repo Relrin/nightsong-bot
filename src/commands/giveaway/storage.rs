@@ -29,7 +29,7 @@ impl GiveawayManager {
         let guard_giveaways = ref_giveaways.lock().unwrap();
 
         match index > 0 && index < guard_giveaways.len() + 1 {
-            true => Ok(guard_giveaways[index].clone()),
+            true => Ok(guard_giveaways[index - 1].clone()),
             false => {
                 let message = format!("The requested giveaway was not found.");
                 Err(Error::from(ErrorKind::Giveaway(message)))
@@ -182,6 +182,105 @@ mod tests {
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
                 "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_activate_giveaway() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.activate_giveaway(&user, 1);
+        assert_eq!(result.is_ok(), true);
+
+        let giveaway_after_changes = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(giveaway_after_changes.is_activated(), true);
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_index_on_activate() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.activate_giveaway(&user, 2);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_owner_on_activate() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "Test");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.activate_giveaway(&user, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "For interacting with this giveaway you need to be its owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_deactivate_giveaway() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deactivate_giveaway(&user, 1);
+        assert_eq!(result.is_ok(), true);
+
+        let giveaway_after_changes = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(giveaway_after_changes.is_activated(), false);
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_index_on_deactivate() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deactivate_giveaway(&user, 2);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_owner_on_deactivate() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "Test");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deactivate_giveaway(&user, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "For interacting with this giveaway you need to be its owner."
             )))
         );
     }
