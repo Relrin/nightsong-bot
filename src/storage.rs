@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serenity::prelude::TypeMapKey;
 
-use crate::commands::giveaway::storage::GiveawayManager;
+use crate::commands::giveaway::manager::GiveawayManager;
 
 pub struct GiveawayStore;
 

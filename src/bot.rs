@@ -5,7 +5,7 @@ use serenity::framework::standard::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::prelude::{Client, Context, EventHandler};
 
-use crate::commands::giveaway::storage::GiveawayManager;
+use crate::commands::giveaway::manager::GiveawayManager;
 use crate::commands::{GET_COMMANDS_LIST, GIVEAWAY_GROUP};
 use crate::storage::GiveawayStore;
 
