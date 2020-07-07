@@ -11,7 +11,7 @@ use crate::storage::GiveawayStore;
 #[group]
 #[commands(
     list_giveaways,
-    new_giveaway,
+    create_giveaway,
     start_giveaway,
     deactivate_giveaway,
     finish_giveaway
@@ -19,8 +19,7 @@ use crate::storage::GiveawayStore;
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
 
-#[command("giveaways")]
-#[aliases("gs")]
+#[command("glist")]
 #[description = "Get a list of available giveaways"]
 fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
     let giveaway_manager = ctx
@@ -48,22 +47,14 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-#[command("new-giveaway")]
-#[aliases("nga")]
+#[command("gcreate")]
 #[min_args(1)]
-#[max_args(1)]
 #[help_available]
-#[example("!new-giveaway <\"description\">")]
+#[example("!gcreate <description>")]
 #[description = "Create a new giveaway"]
-fn new_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let description = args
-        .single::<String>()
-        .unwrap_or("".to_string())
-        .trim_start_matches('"')
-        .trim_end_matches('"')
-        .to_string();
-
-    let giveaway = GiveawayInstance::new(&msg.author).with_description(&description);
+fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let description = args.message();
+    let giveaway = GiveawayInstance::new(&msg.author).with_description(description);
 
     let giveaway_manager = ctx
         .data
@@ -74,25 +65,24 @@ fn new_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 
     giveaway_manager.add_giveaway(giveaway);
     msg.channel_id
-        .say(&ctx.http, "The giveaway has been added!")?;
+        .say(&ctx.http, "The giveaway has been created!")?;
 
     Ok(())
 }
 
-#[command("start-giveaway")]
-#[aliases("sga")]
+#[command("gstart")]
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!start-giveaway <number>")]
-#[description = "Start a giveaway"]
+#[example("!gstart <number>")]
+#[description = "Start the certain giveaway"]
 fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `start-giveaway` command must be a positive integer.",
+                "An argument for the `gstart` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -115,20 +105,19 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
     Ok(())
 }
 
-#[command("deactivate-giveaway")]
-#[aliases("dga")]
+#[command("gdeactivate")]
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!deactivate-giveaway <number>")]
-#[description = "Start a giveaway by the given number"]
+#[example("!gdeactivate <number>")]
+#[description = "Deactivates the giveaway by the given number"]
 fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `deactivate-giveaway` command must be a positive integer.",
+                "An argument for the `gdeactivate` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -151,20 +140,19 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
     Ok(())
 }
 
-#[command("finish-giveaway")]
-#[aliases("fga")]
+#[command("gfinish")]
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!finish-giveaway <number>")]
-#[description = "Finish and delete a giveaway by the given number"]
+#[example("!gfinish <number>")]
+#[description = "Finishes and deletes the giveaway by the given number"]
 fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `finish-giveaway` command must be a positive integer.",
+                "An argument for the `gfinish` command must be a positive integer.",
             )?;
             return Ok(());
         }

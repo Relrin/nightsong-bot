@@ -39,11 +39,7 @@ impl GiveawayManager {
 
     pub fn activate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?;
-
-        if user.id.0 != giveaway.owner().get_user_id() {
-            let message = format!("For interacting with this giveaway you need to be its owner.");
-            return Err(Error::from(ErrorKind::Giveaway(message)));
-        }
+        self.check_giveaway_owner(user, &giveaway)?;
 
         giveaway.activate();
         Ok(())
@@ -51,11 +47,7 @@ impl GiveawayManager {
 
     pub fn deactivate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?.clone();
-
-        if user.id.0 != giveaway.owner().get_user_id() {
-            let message = format!("For interacting with this giveaway you need to be its owner.");
-            return Err(Error::from(ErrorKind::Giveaway(message)));
-        }
+        self.check_giveaway_owner(user, &giveaway)?;
 
         giveaway.deactivate();
         Ok(())
@@ -86,6 +78,15 @@ impl GiveawayManager {
         let ref_giveaways = self.giveaways.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
         guard_giveaways.push(Arc::new(Box::new(giveaway)));
+    }
+
+    fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {
+        if user.id.0 != giveaway.owner().get_user_id() {
+            let message = format!("For interacting with this giveaway you need to be its owner.");
+            return Err(Error::from(ErrorKind::Giveaway(message)));
+        }
+
+        Ok(())
     }
 }
 
