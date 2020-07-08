@@ -10,11 +10,17 @@ use crate::storage::GiveawayStore;
 
 #[group]
 #[commands(
+    // Giveaway management
     list_giveaways,
     create_giveaway,
     start_giveaway,
     deactivate_giveaway,
-    finish_giveaway
+    finish_giveaway,
+
+    // Giveaway objects management
+    list_giveaway_objects,
+    add_giveaway_object,
+    remove_giveaway_object,
 )]
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
@@ -82,7 +88,7 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `gstart` command must be a positive integer.",
+                "The `number` argument for the `gstart` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -117,7 +123,7 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `gdeactivate` command must be a positive integer.",
+                "The `number` argument for the `gdeactivate` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -152,7 +158,7 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "An argument for the `gfinish` command must be a positive integer.",
+                "The `number` argument for the `gfinish` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -169,6 +175,129 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
         Ok(_) => msg
             .channel_id
             .say(&ctx.http, "The giveaway has been finished.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
+    Ok(())
+}
+
+#[command("gitems")]
+#[min_args(1)]
+#[min_args(1)]
+#[help_available]
+#[example("!gitems <number> <description>")]
+#[description = "Adds a new prize to the certain giveaway"]
+fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `number` argument for the `gitems` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    let giveaway_objects = giveaway_manager
+        .get_giveaway_objects(&msg.author, index)?
+        .iter()
+        .enumerate()
+        .map(|(index, data)| format!("{}. {}", index + 1, data))
+        .collect::<Vec<String>>();
+
+    let content = match giveaway_objects.len() {
+        0 => "There are no added prizes.".to_string(),
+        _ => format!("Prizes:\n{}", giveaway_objects.join("\n")),
+    };
+
+    let message = MessageBuilder::new().push(content).build();
+    msg.channel_id.say(&ctx.http, message)?;
+
+    Ok(())
+}
+
+#[command("gadd")]
+#[min_args(2)]
+#[help_available]
+#[example("!gadd <number> <description>")]
+#[description = "Adds a new prize to the certain giveaway"]
+fn add_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `number` argument for the `gadd` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+    let data = args.rest();
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.add_giveaway_object(&msg.author, index, data) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The prize has been added to the giveaway.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
+    Ok(())
+}
+
+#[command("gremove")]
+#[min_args(2)]
+#[min_args(2)]
+#[help_available]
+#[example("!gremove <number> <prize-to-remove>")]
+#[description = "Removes the prize from the certain giveaway"]
+fn remove_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `number` argument for the `gremove` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+    let prize_index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `prize-to-remove` argument for the `gremove` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.remove_giveaway_object(&msg.author, index, prize_index) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The prize has been removed from the giveaway.")?,
         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
     };
 

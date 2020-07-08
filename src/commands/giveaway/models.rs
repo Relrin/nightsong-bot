@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use serenity::model::user::User as DiscordUser;
 
 use crate::commands::giveaway::utils::parse_message;
+use crate::error::{Error, ErrorKind, Result};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Participant {
@@ -121,13 +122,21 @@ impl Giveaway {
             .push(Arc::new(Box::new(obj.clone())));
     }
 
-    pub fn remove_giveaway_object_by_index(&self, index: usize) {
+    pub fn remove_giveaway_object_by_index(&self, index: usize) -> Result<()> {
         let ref_giveaways = self.giveaway_objects.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
 
-        if index > 0 && index < guard_giveaways.len() + 1 {
-            guard_giveaways.remove(index - 1);
-        }
+        match index > 0 && index < guard_giveaways.len() + 1 {
+            true => {
+                guard_giveaways.remove(index - 1);
+            }
+            false => {
+                let message = format!("The requested prize was not found.");
+                return Err(Error::from(ErrorKind::Giveaway(message)));
+            }
+        };
+
+        Ok(())
     }
 
     pub fn pretty_print(&self) -> String {
@@ -398,7 +407,7 @@ mod tests {
             true
         );
 
-        giveaway.remove_giveaway_object_by_index(1);
+        giveaway.remove_giveaway_object_by_index(1).unwrap();
         let latest_giveaway_objects = giveaway.get_current_giveaway_objects();
         assert_eq!(
             latest_giveaway_objects.contains(&giveaway_object.pretty_print()),
