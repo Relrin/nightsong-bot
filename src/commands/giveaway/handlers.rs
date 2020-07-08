@@ -185,8 +185,8 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
 #[min_args(1)]
 #[min_args(1)]
 #[help_available]
-#[example("!gitems <number> <description>")]
-#[description = "Adds a new prize to the certain giveaway"]
+#[example("!gitems <number>")]
+#[description = "Display detailed info about the prizes in the giveaway for the owner."]
 fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
@@ -206,20 +206,26 @@ fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> Co
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
-    let giveaway_objects = giveaway_manager
-        .get_giveaway_objects(&msg.author, index)?
-        .iter()
-        .enumerate()
-        .map(|(index, data)| format!("{}. {}", index + 1, data))
-        .collect::<Vec<String>>();
+    match giveaway_manager.get_giveaway_objects(&msg.author, index) {
+        Ok(items) => {
+            let content = match items.len() {
+                0 => "There are no added prizes.".to_string(),
+                _ => format!(
+                    "Prizes:\n{}",
+                    items
+                        .iter()
+                        .enumerate()
+                        .map(|(index, obj)| format!("{}. {}", index + 1, obj.detailed_print()))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                ),
+            };
 
-    let content = match giveaway_objects.len() {
-        0 => "There are no added prizes.".to_string(),
-        _ => format!("Prizes:\n{}", giveaway_objects.join("\n")),
+            let message = MessageBuilder::new().push(content).build();
+            msg.channel_id.say(&ctx.http, message)?
+        }
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
     };
-
-    let message = MessageBuilder::new().push(content).build();
-    msg.channel_id.say(&ctx.http, message)?;
 
     Ok(())
 }

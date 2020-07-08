@@ -80,11 +80,19 @@ impl GiveawayManager {
         guard_giveaways.push(Arc::new(Box::new(giveaway)));
     }
 
-    pub fn get_giveaway_objects(&self, user: &DiscordUser, index: usize) -> Result<Vec<String>> {
+    pub fn get_giveaway_objects(
+        &self,
+        user: &DiscordUser,
+        index: usize,
+    ) -> Result<Vec<Arc<Box<GiveawayObject>>>> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
 
-        let giveaway_objects = giveaway.get_current_giveaway_objects();
+        let giveaway_objects = giveaway
+            .get_giveaway_objects()
+            .iter()
+            .cloned()
+            .collect::<Vec<Arc<Box<GiveawayObject>>>>();
         Ok(giveaway_objects)
     }
 
@@ -375,7 +383,7 @@ mod tests {
         assert_eq!(result.is_ok(), true);
 
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
-        assert_eq!(updated_giveaway.get_current_giveaway_objects().len(), 1);
+        assert_eq!(updated_giveaway.get_giveaway_objects().len(), 1);
     }
 
     #[test]

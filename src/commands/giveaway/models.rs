@@ -73,13 +73,13 @@ impl Giveaway {
         self.active.store(false, Ordering::SeqCst);
     }
 
-    pub fn get_current_participants(&self) -> Vec<String> {
+    pub fn get_participants(&self) -> Vec<Box<Participant>> {
         self.participants
             .clone()
             .lock()
             .unwrap()
             .iter()
-            .map(|(_, participant)| participant.get_username())
+            .map(|(_, participant)| participant.clone())
             .collect()
     }
 
@@ -104,13 +104,13 @@ impl Giveaway {
         self.participants.clone().lock().unwrap().remove(&user.id.0);
     }
 
-    pub fn get_current_giveaway_objects(&self) -> Vec<String> {
+    pub fn get_giveaway_objects(&self) -> Vec<Arc<Box<GiveawayObject>>> {
         self.giveaway_objects
             .clone()
             .lock()
             .unwrap()
             .iter()
-            .map(|obj| obj.pretty_print())
+            .cloned()
             .collect()
     }
 
@@ -204,6 +204,10 @@ impl GiveawayObject {
         self.value.clone()
     }
 
+    pub fn get_description(&self) -> Option<String> {
+        self.description.clone()
+    }
+
     pub fn get_object_type(&self) -> ObjectType {
         self.object_type
     }
@@ -214,6 +218,28 @@ impl GiveawayObject {
 
     pub fn set_object_state(&mut self, state: ObjectState) {
         self.object_state = state;
+    }
+
+    pub fn detailed_print(&self) -> String {
+        match self.object_type {
+            ObjectType::Key => {
+                let key = match self.object_info.clone() {
+                    Some(info) => format!("{} {}", self.value, info),
+                    None => format!("{}", self.value),
+                };
+
+                format!(
+                    "{} -> {}",
+                    key,
+                    self.description.clone().unwrap_or(String::from("")),
+                )
+            }
+            ObjectType::Other => format!(
+                "{}{}",
+                self.value,
+                self.description.clone().unwrap_or(String::from("")),
+            ),
+        }
     }
 
     pub fn pretty_print(&self) -> String {
@@ -294,7 +320,7 @@ mod tests {
     // ---- Giveaway struct tests ----
 
     #[test]
-    fn test_get_current_participants() {
+    fn test_get_participants() {
         let user_1 = get_user(1, "User 1");
         let user_2 = get_user(2, "User 2 ");
         let user_3 = get_user(3, "User 3");
@@ -303,18 +329,22 @@ mod tests {
         giveaway.add_participant(&user_2.clone());
         giveaway.add_participant(&user_3.clone());
 
-        let participants = giveaway.get_current_participants();
+        let participants = giveaway
+            .get_participants()
+            .iter()
+            .map(|obj| obj.get_username())
+            .collect::<Vec<String>>();
         assert_eq!(participants.contains(&user_1.name), true);
         assert_eq!(participants.contains(&user_2.name), true);
         assert_eq!(participants.contains(&user_3.name), true);
     }
 
     #[test]
-    fn test_get_current_participants_for_a_new_giveaway() {
+    fn test_get_participants_for_a_new_giveaway() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
 
-        let participants = giveaway.get_current_participants();
+        let participants = giveaway.get_participants();
         assert_eq!(participants.is_empty(), true);
     }
 
@@ -340,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_current_giveaway_objects() {
+    fn test_get_giveaway_objects() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
         let giveaway_object_1 = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
@@ -350,7 +380,11 @@ mod tests {
         giveaway.add_giveaway_object(&giveaway_object_2);
         giveaway.add_giveaway_object(&giveaway_object_3);
 
-        let giveaway_objects = giveaway.get_current_giveaway_objects();
+        let giveaway_objects = giveaway
+            .get_giveaway_objects()
+            .iter()
+            .map(|obj| obj.pretty_print())
+            .collect::<Vec<String>>();
         assert_eq!(
             giveaway_objects.contains(&giveaway_object_1.pretty_print()),
             true
@@ -366,11 +400,11 @@ mod tests {
     }
 
     #[test]
-    fn test_get_current_giveaway_objects_for_a_new_giveaway() {
+    fn test_get_giveaway_objects_for_a_new_giveaway() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
 
-        let giveaway_objects = giveaway.get_current_giveaway_objects();
+        let giveaway_objects = giveaway.get_giveaway_objects();
         assert_eq!(giveaway_objects.is_empty(), true);
     }
 
@@ -380,11 +414,15 @@ mod tests {
         let giveaway = Giveaway::new(&user);
         let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
 
-        let old_giveaway_objects = giveaway.get_current_giveaway_objects();
+        let old_giveaway_objects = giveaway.get_giveaway_objects();
         assert_eq!(old_giveaway_objects.is_empty(), true);
 
         giveaway.add_giveaway_object(&giveaway_object);
-        let updated_giveaway_objects = giveaway.get_current_giveaway_objects();
+        let updated_giveaway_objects = giveaway
+            .get_giveaway_objects()
+            .iter()
+            .map(|obj| obj.pretty_print())
+            .collect::<Vec<String>>();
         assert_eq!(
             updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
             true
@@ -397,18 +435,26 @@ mod tests {
         let giveaway = Giveaway::new(&user);
         let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
 
-        let old_giveaway_objects = giveaway.get_current_giveaway_objects();
+        let old_giveaway_objects = giveaway.get_giveaway_objects();
         assert_eq!(old_giveaway_objects.is_empty(), true);
 
         giveaway.add_giveaway_object(&giveaway_object);
-        let updated_giveaway_objects = giveaway.get_current_giveaway_objects();
+        let updated_giveaway_objects = giveaway
+            .get_giveaway_objects()
+            .iter()
+            .map(|obj| obj.pretty_print())
+            .collect::<Vec<String>>();
         assert_eq!(
             updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
             true
         );
 
         giveaway.remove_giveaway_object_by_index(1).unwrap();
-        let latest_giveaway_objects = giveaway.get_current_giveaway_objects();
+        let latest_giveaway_objects = giveaway
+            .get_giveaway_objects()
+            .iter()
+            .map(|obj| obj.pretty_print())
+            .collect::<Vec<String>>();
         assert_eq!(
             latest_giveaway_objects.contains(&giveaway_object.pretty_print()),
             false
