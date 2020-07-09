@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -37,7 +36,6 @@ pub struct Giveaway {
     active: Arc<AtomicBool>,
     owner: Participant,
     description: String,
-    participants: Arc<Mutex<HashMap<u64, Box<Participant>>>>,
     giveaway_objects: Arc<Mutex<Box<Vec<Arc<Box<GiveawayObject>>>>>>,
 }
 
@@ -47,7 +45,6 @@ impl Giveaway {
             active: Arc::new(AtomicBool::new(false)),
             owner: Participant::from(discord_user.clone()),
             description: String::from(""),
-            participants: Arc::new(Mutex::new(HashMap::new())),
             giveaway_objects: Arc::new(Mutex::new(Box::new(Vec::new()))),
         }
     }
@@ -71,37 +68,6 @@ impl Giveaway {
 
     pub fn deactivate(&self) {
         self.active.store(false, Ordering::SeqCst);
-    }
-
-    pub fn get_participants(&self) -> Vec<Box<Participant>> {
-        self.participants
-            .clone()
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|(_, participant)| participant.clone())
-            .collect()
-    }
-
-    pub fn is_participant(&self, user: &DiscordUser) -> bool {
-        self.participants
-            .clone()
-            .lock()
-            .unwrap()
-            .contains_key(&user.id.0)
-    }
-
-    pub fn add_participant(&self, user: &DiscordUser) {
-        let participant = Box::new(Participant::from(user.clone()));
-        self.participants
-            .clone()
-            .lock()
-            .unwrap()
-            .insert(user.id.0, participant);
-    }
-
-    pub fn remove_participant(&self, user: &DiscordUser) {
-        self.participants.clone().lock().unwrap().remove(&user.id.0);
     }
 
     pub fn get_giveaway_objects(&self) -> Vec<Arc<Box<GiveawayObject>>> {
@@ -152,19 +118,9 @@ impl Eq for Giveaway {}
 
 impl PartialEq for Giveaway {
     fn eq(&self, other: &Self) -> bool {
-        let self_participants;
-        {
-            self_participants = self.participants.lock().unwrap().clone();
-        }
-
         let self_giveaway_objects;
         {
             self_giveaway_objects = self.giveaway_objects.lock().unwrap().clone();
-        }
-
-        let other_participants;
-        {
-            other_participants = other.participants.lock().unwrap().clone();
         }
 
         let other_giveaway_objects;
@@ -172,9 +128,7 @@ impl PartialEq for Giveaway {
             other_giveaway_objects = other.giveaway_objects.lock().unwrap().clone();
         }
 
-        self.description == other.description
-            && self_participants == other_participants
-            && self_giveaway_objects == other_giveaway_objects
+        self.description == other.description && self_giveaway_objects == other_giveaway_objects
     }
 }
 
@@ -318,56 +272,6 @@ mod tests {
     }
 
     // ---- Giveaway struct tests ----
-
-    #[test]
-    fn test_get_participants() {
-        let user_1 = get_user(1, "User 1");
-        let user_2 = get_user(2, "User 2 ");
-        let user_3 = get_user(3, "User 3");
-        let giveaway = Giveaway::new(&user_1);
-        giveaway.add_participant(&user_1.clone());
-        giveaway.add_participant(&user_2.clone());
-        giveaway.add_participant(&user_3.clone());
-
-        let participants = giveaway
-            .get_participants()
-            .iter()
-            .map(|obj| obj.get_username())
-            .collect::<Vec<String>>();
-        assert_eq!(participants.contains(&user_1.name), true);
-        assert_eq!(participants.contains(&user_2.name), true);
-        assert_eq!(participants.contains(&user_3.name), true);
-    }
-
-    #[test]
-    fn test_get_participants_for_a_new_giveaway() {
-        let user = get_user(1, "Test");
-        let giveaway = Giveaway::new(&user);
-
-        let participants = giveaway.get_participants();
-        assert_eq!(participants.is_empty(), true);
-    }
-
-    #[test]
-    fn test_add_participant_to_the_giveaway() {
-        let user = get_user(1, "Test");
-        let giveaway = Giveaway::new(&user);
-
-        giveaway.add_participant(&user.clone());
-        assert_eq!(giveaway.is_participant(&user.clone()), true);
-    }
-
-    #[test]
-    fn test_remove_participant_from_the_giveaway() {
-        let user = get_user(1, "Test");
-        let giveaway = Giveaway::new(&user);
-
-        giveaway.add_participant(&user.clone());
-        assert_eq!(giveaway.is_participant(&user.clone()), true);
-
-        giveaway.remove_participant(&user.clone());
-        assert_eq!(giveaway.is_participant(&user.clone()), false);
-    }
 
     #[test]
     fn test_get_giveaway_objects() {
