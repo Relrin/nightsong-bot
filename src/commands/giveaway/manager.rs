@@ -18,12 +18,14 @@ impl GiveawayManager {
         }
     }
 
+    // Returns all current giveaways (started and on a pause).
     pub fn get_giveaways(&self) -> Vec<Arc<Box<Giveaway>>> {
         let ref_giveaways = self.giveaways.clone();
         let guard_giveaways = ref_giveaways.lock().unwrap();
         guard_giveaways.to_vec()
     }
 
+    // Returns a giveaway by the given index.
     pub fn get_giveaway_by_index(&self, index: usize) -> Result<Arc<Box<Giveaway>>> {
         let ref_giveaways = self.giveaways.clone();
         let guard_giveaways = ref_giveaways.lock().unwrap();
@@ -37,6 +39,7 @@ impl GiveawayManager {
         }
     }
 
+    // Sets the giveaway to the "active" state. Available only for the owner.
     pub fn activate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
@@ -45,6 +48,7 @@ impl GiveawayManager {
         Ok(())
     }
 
+    // Sets the giveaway to the "pause" state. Available only for the owner.
     pub fn deactivate_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?.clone();
         self.check_giveaway_owner(user, &giveaway)?;
@@ -53,6 +57,7 @@ impl GiveawayManager {
         Ok(())
     }
 
+    // Deletes the giveaway. Available only for the owner.
     pub fn delete_giveaway(&self, user: &DiscordUser, index: usize) -> Result<()> {
         let ref_giveaways = self.giveaways.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
@@ -74,12 +79,15 @@ impl GiveawayManager {
         }
     }
 
+    // Adds a new giveaway.
     pub fn add_giveaway(&self, giveaway: Giveaway) {
         let ref_giveaways = self.giveaways.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
         guard_giveaways.push(Arc::new(Box::new(giveaway)));
     }
 
+    // Returns a list of reward for the certain giveaway. Mostly used for checks
+    // before the beginning and debugging. Available only for the owner.
     pub fn get_giveaway_rewards(
         &self,
         user: &DiscordUser,
@@ -96,6 +104,8 @@ impl GiveawayManager {
         Ok(rewards)
     }
 
+    // Parses the messages into the certain type of reward and adds to the certain
+    // giveaway. Owners can add rewards only for their own giveaways.
     pub fn add_giveaway_reward(&self, user: &DiscordUser, index: usize, data: &str) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
@@ -106,6 +116,8 @@ impl GiveawayManager {
         Ok(())
     }
 
+    // Removed the giveaway from the certain giveaways. Owners can remove rewards
+    // only for their own giveaways.
     pub fn remove_giveaway_reward(
         &self,
         user: &DiscordUser,

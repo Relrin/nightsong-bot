@@ -13,10 +13,12 @@ pub struct Participant {
 }
 
 impl Participant {
+    // Returns a unique identifier in Discord
     pub fn get_user_id(&self) -> u64 {
         self.user_id
     }
 
+    // Returns a username in the Discord room
     pub fn get_username(&self) -> String {
         self.username.clone()
     }
@@ -49,27 +51,33 @@ impl Giveaway {
         }
     }
 
+    // Returns a text description about the giveaway
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = description.to_string();
         self
     }
 
+    // Returns information about who created the giveaway
     pub fn owner(&self) -> &Participant {
         &self.owner
     }
 
+    // Checks that the giveaway has been started by the owner
     pub fn is_activated(&self) -> bool {
         self.active.load(Ordering::SeqCst)
     }
 
+    // Starts the giveaway
     pub fn activate(&self) {
         self.active.store(true, Ordering::SeqCst)
     }
 
+    // Disables the giveaway (which is actually means "a pause state")
     pub fn deactivate(&self) {
         self.active.store(false, Ordering::SeqCst);
     }
 
+    // Returns a list of all available rewards.
     pub fn get_rewards(&self) -> Vec<Arc<Box<Reward>>> {
         self.rewards
             .clone()
@@ -80,6 +88,7 @@ impl Giveaway {
             .collect()
     }
 
+    // Adds a new reward in the list of available rewards.
     pub fn add_reward(&self, obj: &Reward) {
         self.rewards
             .clone()
@@ -88,6 +97,7 @@ impl Giveaway {
             .push(Arc::new(Box::new(obj.clone())));
     }
 
+    // Removes the reward by index from the list of available rewards.
     pub fn remove_reward_by_index(&self, index: usize) -> Result<()> {
         let ref_giveaways = self.rewards.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
@@ -105,6 +115,7 @@ impl Giveaway {
         Ok(())
     }
 
+    // Pretty-print of the giveaway in the text messages.
     pub fn pretty_print(&self) -> String {
         format!(
             "{} [owner: <@{}>]",
@@ -154,26 +165,32 @@ impl Reward {
         }
     }
 
+    // Returns the reward's store key or a plain text
     pub fn get_value(&self) -> String {
         self.value.clone()
     }
 
+    // Returns the description of the item (if has any)
     pub fn get_description(&self) -> Option<String> {
         self.description.clone()
     }
 
+    // Returns the object type. It can be a game / store key or just a plain text.
     pub fn get_object_type(&self) -> ObjectType {
         self.object_type
     }
 
+    // Returns the current object state.
     pub fn get_object_state(&self) -> ObjectState {
         self.object_state
     }
 
+    // Overrides the object state onto the new one.
     pub fn set_object_state(&mut self, state: ObjectState) {
         self.object_state = state;
     }
 
+    // Returns detailed info for the giveaway owner when necessary to update the giveaway.
     pub fn detailed_print(&self) -> String {
         match self.object_type {
             ObjectType::Key => {
@@ -196,6 +213,7 @@ impl Reward {
         }
     }
 
+    // Stylized print for the users in the channel when the giveaways has been started.
     pub fn pretty_print(&self) -> String {
         let text = match self.object_type {
             // Different output of the key, depends on the current state
@@ -242,12 +260,16 @@ pub enum ObjectType {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ObjectState {
+    // The reward has been activated by someone an works without any issues.
     Activated,
+    // The reward was taken by someone, but not verified yet.
     Pending,
+    // The reward hasn't been taken by anyone.
     Unused,
 }
 
 impl ObjectState {
+    // Pretty-print for the object state in text messages
     pub fn as_str(&self) -> &'static str {
         match self {
             ObjectState::Activated => "[+]",
