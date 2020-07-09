@@ -17,10 +17,10 @@ use crate::storage::GiveawayStore;
     deactivate_giveaway,
     finish_giveaway,
 
-    // Giveaway objects management
-    list_giveaway_objects,
-    add_giveaway_object,
-    remove_giveaway_object,
+    // Giveaway rewards management
+    list_rewards,
+    add_reward,
+    remove_reward,
 )]
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
@@ -183,11 +183,11 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
 
 #[command("gitems")]
 #[min_args(1)]
-#[min_args(1)]
+#[max_args(1)]
 #[help_available]
 #[example("!gitems <number>")]
-#[description = "Display detailed info about the prizes in the giveaway for the owner."]
-fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+#[description = "Display detailed info about the rewards in the giveaway for the owner."]
+fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -206,12 +206,12 @@ fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> Co
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
-    match giveaway_manager.get_giveaway_objects(&msg.author, index) {
+    match giveaway_manager.get_giveaway_rewards(&msg.author, index) {
         Ok(items) => {
             let content = match items.len() {
-                0 => "There are no added prizes.".to_string(),
+                0 => "There are no added rewards.".to_string(),
                 _ => format!(
-                    "Prizes:\n{}",
+                    "Rewards:\n{}",
                     items
                         .iter()
                         .enumerate()
@@ -234,8 +234,8 @@ fn list_giveaway_objects(ctx: &mut Context, msg: &Message, mut args: Args) -> Co
 #[min_args(2)]
 #[help_available]
 #[example("!gadd <number> <description>")]
-#[description = "Adds a new prize to the certain giveaway"]
-fn add_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+#[description = "Adds a new reward to the certain giveaway"]
+fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -255,10 +255,10 @@ fn add_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
-    match giveaway_manager.add_giveaway_object(&msg.author, index, data) {
+    match giveaway_manager.add_giveaway_reward(&msg.author, index, data) {
         Ok(_) => msg
             .channel_id
-            .say(&ctx.http, "The prize has been added to the giveaway.")?,
+            .say(&ctx.http, "The reward has been added to the giveaway.")?,
         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
     };
 
@@ -267,11 +267,11 @@ fn add_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
 
 #[command("gremove")]
 #[min_args(2)]
-#[min_args(2)]
+#[max_args(2)]
 #[help_available]
-#[example("!gremove <number> <prize-to-remove>")]
-#[description = "Removes the prize from the certain giveaway"]
-fn remove_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+#[example("!gremove <number> <reward-to-remove>")]
+#[description = "Removes the reward from the certain giveaway"]
+fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -282,12 +282,12 @@ fn remove_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> C
             return Ok(());
         }
     };
-    let prize_index = match args.single::<usize>() {
+    let reward_index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `prize-to-remove` argument for the `gremove` command must be a positive integer.",
+                "The `reward-to-remove` argument for the `gremove` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -300,10 +300,10 @@ fn remove_giveaway_object(ctx: &mut Context, msg: &Message, mut args: Args) -> C
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
-    match giveaway_manager.remove_giveaway_object(&msg.author, index, prize_index) {
+    match giveaway_manager.remove_giveaway_reward(&msg.author, index, reward_index) {
         Ok(_) => msg
             .channel_id
-            .say(&ctx.http, "The prize has been removed from the giveaway.")?,
+            .say(&ctx.http, "The reward has been removed from the giveaway.")?,
         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
     };
 

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serenity::model::user::User as DiscordUser;
 
-use crate::commands::giveaway::models::{Giveaway, GiveawayObject};
+use crate::commands::giveaway::models::{Giveaway, Reward};
 use crate::error::{Error, ErrorKind, Result};
 
 #[derive(Debug)]
@@ -80,41 +80,41 @@ impl GiveawayManager {
         guard_giveaways.push(Arc::new(Box::new(giveaway)));
     }
 
-    pub fn get_giveaway_objects(
+    pub fn get_giveaway_rewards(
         &self,
         user: &DiscordUser,
         index: usize,
-    ) -> Result<Vec<Arc<Box<GiveawayObject>>>> {
+    ) -> Result<Vec<Arc<Box<Reward>>>> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
 
-        let giveaway_objects = giveaway
-            .get_giveaway_objects()
+        let rewards = giveaway
+            .get_rewards()
             .iter()
             .cloned()
-            .collect::<Vec<Arc<Box<GiveawayObject>>>>();
-        Ok(giveaway_objects)
+            .collect::<Vec<Arc<Box<Reward>>>>();
+        Ok(rewards)
     }
 
-    pub fn add_giveaway_object(&self, user: &DiscordUser, index: usize, data: &str) -> Result<()> {
+    pub fn add_giveaway_reward(&self, user: &DiscordUser, index: usize, data: &str) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
 
-        let giveaway_object = GiveawayObject::new(data);
-        giveaway.add_giveaway_object(&giveaway_object);
+        let reward = Reward::new(data);
+        giveaway.add_reward(&reward);
 
         Ok(())
     }
 
-    pub fn remove_giveaway_object(
+    pub fn remove_giveaway_reward(
         &self,
         user: &DiscordUser,
         index: usize,
-        prize_index: usize,
+        reward_index: usize,
     ) -> Result<()> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_owner(user, &giveaway)?;
-        giveaway.remove_giveaway_object_by_index(prize_index)?;
+        giveaway.remove_reward_by_index(reward_index)?;
         Ok(())
     }
 
@@ -325,26 +325,26 @@ mod tests {
     }
 
     #[test]
-    fn test_get_giveaway_objects() {
+    fn test_get_giveaway_rewards() {
         let manager = GiveawayManager::new();
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        manager.add_giveaway_object(&user, 1, "test").unwrap();
-        let result = manager.get_giveaway_objects(&user, 1);
+        manager.add_giveaway_reward(&user, 1, "test").unwrap();
+        let result = manager.get_giveaway_rewards(&user, 1);
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap().len(), 1);
     }
 
     #[test]
-    fn test_get_error_for_invalid_index_on_get_giveaway_objects() {
+    fn test_get_error_for_invalid_index_on_get_giveaway_rewards() {
         let manager = GiveawayManager::new();
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.get_giveaway_objects(&user, 2);
+        let result = manager.get_giveaway_rewards(&user, 2);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
@@ -355,14 +355,14 @@ mod tests {
     }
 
     #[test]
-    fn test_get_error_for_invalid_owner_on_get_giveaway_objects() {
+    fn test_get_error_for_invalid_owner_on_get_giveaway_rewards() {
         let manager = GiveawayManager::new();
         let owner = get_user(1, "Owner");
         let user = get_user(2, "Test");
         let giveaway = Giveaway::new(&owner).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.get_giveaway_objects(&user, 1);
+        let result = manager.get_giveaway_rewards(&user, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
@@ -373,27 +373,27 @@ mod tests {
     }
 
     #[test]
-    fn test_add_giveaway_object() {
+    fn test_add_giveaway_reward() {
         let manager = GiveawayManager::new();
         let owner = get_user(1, "Owner");
         let giveaway = Giveaway::new(&owner).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.add_giveaway_object(&owner, 1, "test");
+        let result = manager.add_giveaway_reward(&owner, 1, "test");
         assert_eq!(result.is_ok(), true);
 
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
-        assert_eq!(updated_giveaway.get_giveaway_objects().len(), 1);
+        assert_eq!(updated_giveaway.get_rewards().len(), 1);
     }
 
     #[test]
-    fn test_get_error_for_invalid_index_on_add_new_giveaway_object() {
+    fn test_get_error_for_invalid_index_on_add_new_giveaway_reward() {
         let manager = GiveawayManager::new();
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.add_giveaway_object(&user, 2, "");
+        let result = manager.add_giveaway_reward(&user, 2, "");
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
@@ -404,14 +404,14 @@ mod tests {
     }
 
     #[test]
-    fn test_get_error_for_invalid_owner_on_add_giveaway_object() {
+    fn test_get_error_for_invalid_owner_on_add_giveaway_reward() {
         let manager = GiveawayManager::new();
         let owner = get_user(1, "Owner");
         let user = get_user(2, "Test");
         let giveaway = Giveaway::new(&owner).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.add_giveaway_object(&user, 1, "test");
+        let result = manager.add_giveaway_reward(&user, 1, "test");
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
@@ -422,48 +422,48 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_giveaway_object() {
+    fn test_remove_reward() {
         let manager = GiveawayManager::new();
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        manager.add_giveaway_object(&user, 1, "test").unwrap();
-        let prizes_before_deletion = manager.get_giveaway_objects(&user, 1).unwrap();
-        assert_eq!(prizes_before_deletion.len(), 1);
+        manager.add_giveaway_reward(&user, 1, "test").unwrap();
+        let reward_before_deletion = manager.get_giveaway_rewards(&user, 1).unwrap();
+        assert_eq!(reward_before_deletion.len(), 1);
 
-        manager.remove_giveaway_object(&user, 1, 1).unwrap();
-        let prizes_after_deletion = manager.get_giveaway_objects(&user, 1).unwrap();
-        assert_eq!(prizes_after_deletion.len(), 0);
+        manager.remove_giveaway_reward(&user, 1, 1).unwrap();
+        let reward_after_deletion = manager.get_giveaway_rewards(&user, 1).unwrap();
+        assert_eq!(reward_after_deletion.len(), 0);
     }
 
     #[test]
-    fn test_get_error_for_invalid_index_on_remove_giveaway_object() {
+    fn test_get_error_for_invalid_index_on_remove_reward() {
         let manager = GiveawayManager::new();
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        manager.add_giveaway_object(&user, 1, "test").unwrap();
-        let result = manager.remove_giveaway_object(&user, 1, 2);
+        manager.add_giveaway_reward(&user, 1, "test").unwrap();
+        let result = manager.remove_giveaway_reward(&user, 1, 2);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
-                "The requested prize was not found."
+                "The requested reward was not found."
             )))
         );
     }
 
     #[test]
-    fn test_get_error_for_invalid_owner_on_remove_giveaway_object() {
+    fn test_get_error_for_invalid_owner_on_remove_reward() {
         let manager = GiveawayManager::new();
         let owner = get_user(1, "Owner");
         let user = get_user(2, "Test");
         let giveaway = Giveaway::new(&owner).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.remove_giveaway_object(&user, 1, 1);
+        let result = manager.remove_giveaway_reward(&user, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),

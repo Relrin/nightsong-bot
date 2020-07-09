@@ -36,7 +36,7 @@ pub struct Giveaway {
     active: Arc<AtomicBool>,
     owner: Participant,
     description: String,
-    giveaway_objects: Arc<Mutex<Box<Vec<Arc<Box<GiveawayObject>>>>>>,
+    rewards: Arc<Mutex<Box<Vec<Arc<Box<Reward>>>>>>,
 }
 
 impl Giveaway {
@@ -45,7 +45,7 @@ impl Giveaway {
             active: Arc::new(AtomicBool::new(false)),
             owner: Participant::from(discord_user.clone()),
             description: String::from(""),
-            giveaway_objects: Arc::new(Mutex::new(Box::new(Vec::new()))),
+            rewards: Arc::new(Mutex::new(Box::new(Vec::new()))),
         }
     }
 
@@ -70,8 +70,8 @@ impl Giveaway {
         self.active.store(false, Ordering::SeqCst);
     }
 
-    pub fn get_giveaway_objects(&self) -> Vec<Arc<Box<GiveawayObject>>> {
-        self.giveaway_objects
+    pub fn get_rewards(&self) -> Vec<Arc<Box<Reward>>> {
+        self.rewards
             .clone()
             .lock()
             .unwrap()
@@ -80,16 +80,16 @@ impl Giveaway {
             .collect()
     }
 
-    pub fn add_giveaway_object(&self, obj: &GiveawayObject) {
-        self.giveaway_objects
+    pub fn add_reward(&self, obj: &Reward) {
+        self.rewards
             .clone()
             .lock()
             .unwrap()
             .push(Arc::new(Box::new(obj.clone())));
     }
 
-    pub fn remove_giveaway_object_by_index(&self, index: usize) -> Result<()> {
-        let ref_giveaways = self.giveaway_objects.clone();
+    pub fn remove_reward_by_index(&self, index: usize) -> Result<()> {
+        let ref_giveaways = self.rewards.clone();
         let mut guard_giveaways = ref_giveaways.lock().unwrap();
 
         match index > 0 && index < guard_giveaways.len() + 1 {
@@ -97,7 +97,7 @@ impl Giveaway {
                 guard_giveaways.remove(index - 1);
             }
             false => {
-                let message = format!("The requested prize was not found.");
+                let message = format!("The requested reward was not found.");
                 return Err(Error::from(ErrorKind::Giveaway(message)));
             }
         };
@@ -118,22 +118,22 @@ impl Eq for Giveaway {}
 
 impl PartialEq for Giveaway {
     fn eq(&self, other: &Self) -> bool {
-        let self_giveaway_objects;
+        let self_giveaway_rewards;
         {
-            self_giveaway_objects = self.giveaway_objects.lock().unwrap().clone();
+            self_giveaway_rewards = self.rewards.lock().unwrap().clone();
         }
 
-        let other_giveaway_objects;
+        let other_giveaway_rewards;
         {
-            other_giveaway_objects = other.giveaway_objects.lock().unwrap().clone();
+            other_giveaway_rewards = other.rewards.lock().unwrap().clone();
         }
 
-        self.description == other.description && self_giveaway_objects == other_giveaway_objects
+        self.description == other.description && self_giveaway_rewards == other_giveaway_rewards
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GiveawayObject {
+pub struct Reward {
     value: String,
     description: Option<String>,
     object_info: Option<String>,
@@ -141,11 +141,11 @@ pub struct GiveawayObject {
     object_state: ObjectState,
 }
 
-impl GiveawayObject {
+impl Reward {
     pub fn new(value: &str) -> Self {
         let parse_result = parse_message(value);
 
-        GiveawayObject {
+        Reward {
             value: parse_result.value.clone(),
             description: parse_result.description.clone(),
             object_info: parse_result.object_info.clone(),
@@ -262,7 +262,7 @@ mod tests {
     use serenity::model::id::UserId;
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
-    use crate::commands::giveaway::models::{Giveaway, GiveawayObject, ObjectState, ObjectType};
+    use crate::commands::giveaway::models::{Giveaway, ObjectState, ObjectType, Reward};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
@@ -274,202 +274,184 @@ mod tests {
     // ---- Giveaway struct tests ----
 
     #[test]
-    fn test_get_giveaway_objects() {
+    fn test_get_giveaway_rewards() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
-        let giveaway_object_1 = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
-        let giveaway_object_2 = GiveawayObject::new("BBBBB-CCCCC-DDDDD-FFFF [Store] -> Some game");
-        let giveaway_object_3 = GiveawayObject::new("CCCCC-DDDDD-FFFFF-EEEE [Store] -> Some game");
-        giveaway.add_giveaway_object(&giveaway_object_1);
-        giveaway.add_giveaway_object(&giveaway_object_2);
-        giveaway.add_giveaway_object(&giveaway_object_3);
+        let reward_1 = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        let reward_2 = Reward::new("BBBBB-CCCCC-DDDDD-FFFF [Store] -> Some game");
+        let reward_3 = Reward::new("CCCCC-DDDDD-FFFFF-EEEE [Store] -> Some game");
+        giveaway.add_reward(&reward_1);
+        giveaway.add_reward(&reward_2);
+        giveaway.add_reward(&reward_3);
 
-        let giveaway_objects = giveaway
-            .get_giveaway_objects()
+        let rewards = giveaway
+            .get_rewards()
+            .iter()
+            .map(|obj| obj.pretty_print())
+            .collect::<Vec<String>>();
+        assert_eq!(rewards.contains(&reward_1.pretty_print()), true);
+        assert_eq!(rewards.contains(&reward_2.pretty_print()), true);
+        assert_eq!(rewards.contains(&reward_3.pretty_print()), true);
+    }
+
+    #[test]
+    fn test_get_giveaway_rewards_for_a_new_giveaway() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+
+        let rewards = giveaway.get_rewards();
+        assert_eq!(rewards.is_empty(), true);
+    }
+
+    #[test]
+    fn test_add_giveaway_reward_to_the_giveaway() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+
+        let old_giveaway_rewards = giveaway.get_rewards();
+        assert_eq!(old_giveaway_rewards.is_empty(), true);
+
+        giveaway.add_reward(&reward);
+        let updated_giveaway_rewards = giveaway
+            .get_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
         assert_eq!(
-            giveaway_objects.contains(&giveaway_object_1.pretty_print()),
-            true
-        );
-        assert_eq!(
-            giveaway_objects.contains(&giveaway_object_2.pretty_print()),
-            true
-        );
-        assert_eq!(
-            giveaway_objects.contains(&giveaway_object_3.pretty_print()),
+            updated_giveaway_rewards.contains(&reward.pretty_print()),
             true
         );
     }
 
     #[test]
-    fn test_get_giveaway_objects_for_a_new_giveaway() {
+    fn test_remove_giveaway_reward_by_index_from_the_giveaway() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
 
-        let giveaway_objects = giveaway.get_giveaway_objects();
-        assert_eq!(giveaway_objects.is_empty(), true);
-    }
+        let old_giveaway_rewards = giveaway.get_rewards();
+        assert_eq!(old_giveaway_rewards.is_empty(), true);
 
-    #[test]
-    fn test_add_giveaway_object_to_the_giveaway() {
-        let user = get_user(1, "Test");
-        let giveaway = Giveaway::new(&user);
-        let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
-
-        let old_giveaway_objects = giveaway.get_giveaway_objects();
-        assert_eq!(old_giveaway_objects.is_empty(), true);
-
-        giveaway.add_giveaway_object(&giveaway_object);
-        let updated_giveaway_objects = giveaway
-            .get_giveaway_objects()
+        giveaway.add_reward(&reward);
+        let updated_giveaway_rewards = giveaway
+            .get_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
         assert_eq!(
-            updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
-            true
-        );
-    }
-
-    #[test]
-    fn test_remove_giveaway_object_by_index_from_the_giveaway() {
-        let user = get_user(1, "Test");
-        let giveaway = Giveaway::new(&user);
-        let giveaway_object = GiveawayObject::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
-
-        let old_giveaway_objects = giveaway.get_giveaway_objects();
-        assert_eq!(old_giveaway_objects.is_empty(), true);
-
-        giveaway.add_giveaway_object(&giveaway_object);
-        let updated_giveaway_objects = giveaway
-            .get_giveaway_objects()
-            .iter()
-            .map(|obj| obj.pretty_print())
-            .collect::<Vec<String>>();
-        assert_eq!(
-            updated_giveaway_objects.contains(&giveaway_object.pretty_print()),
+            updated_giveaway_rewards.contains(&reward.pretty_print()),
             true
         );
 
-        giveaway.remove_giveaway_object_by_index(1).unwrap();
-        let latest_giveaway_objects = giveaway
-            .get_giveaway_objects()
+        giveaway.remove_reward_by_index(1).unwrap();
+        let latest_giveaway_rewards = giveaway
+            .get_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
         assert_eq!(
-            latest_giveaway_objects.contains(&giveaway_object.pretty_print()),
+            latest_giveaway_rewards.contains(&reward.pretty_print()),
             false
         );
-        assert_eq!(latest_giveaway_objects.is_empty(), true);
+        assert_eq!(latest_giveaway_rewards.is_empty(), true);
     }
 
     // ---- GiveawayObject struct tests ----
 
     #[test]
-    fn test_get_giveaway_object_value() {
+    fn test_get_reward_value() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(
-            giveaway_object.get_value().as_str(),
-            "AAAAA-BBBBB-CCCCC-DDDD"
-        )
+        assert_eq!(reward.get_value().as_str(), "AAAAA-BBBBB-CCCCC-DDDD")
     }
 
     #[test]
-    fn test_get_giveaway_object_value_for_other_type() {
+    fn test_get_reward_value_for_other_type() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_value().as_str(), text);
+        assert_eq!(reward.get_value().as_str(), text);
     }
 
     #[test]
-    fn test_get_giveaway_object_type() {
+    fn test_get_reward_object_type() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_type(), ObjectType::Key)
+        assert_eq!(reward.get_object_type(), ObjectType::Key)
     }
 
     #[test]
-    fn test_get_giveaway_object_type_value_for_other_type() {
+    fn test_get_reward_type_value_for_other_type() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_type(), ObjectType::Other);
+        assert_eq!(reward.get_object_type(), ObjectType::Other);
     }
 
     #[test]
-    fn test_get_giveaway_object_state() {
+    fn test_get_reward_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused)
+        assert_eq!(reward.get_object_state(), ObjectState::Unused)
     }
 
     #[test]
-    fn test_get_giveaway_object_state_for_other_type() {
+    fn test_get_reward_state_for_other_type() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused);
+        assert_eq!(reward.get_object_state(), ObjectState::Unused);
     }
 
     #[test]
-    fn test_set_giveaway_object_state() {
+    fn test_set_reward_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut giveaway_object = GiveawayObject::new(text);
+        let mut reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused);
-        giveaway_object.set_object_state(ObjectState::Pending);
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Pending);
+        assert_eq!(reward.get_object_state(), ObjectState::Unused);
+        reward.set_object_state(ObjectState::Pending);
+        assert_eq!(reward.get_object_state(), ObjectState::Pending);
     }
 
     #[test]
-    fn test_set_giveaway_object_state_for_other_type() {
+    fn test_set_reward_state_for_other_type() {
         let text = "just a text";
-        let mut giveaway_object = GiveawayObject::new(text);
+        let mut reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Unused);
-        giveaway_object.set_object_state(ObjectState::Pending);
-        assert_eq!(giveaway_object.get_object_state(), ObjectState::Pending);
+        assert_eq!(reward.get_object_state(), ObjectState::Unused);
+        reward.set_object_state(ObjectState::Pending);
+        assert_eq!(reward.get_object_state(), ObjectState::Pending);
     }
 
     #[test]
-    fn test_pretty_print_for_the_giveaway_object_in_the_unused_state() {
+    fn test_pretty_print_for_the_reward_in_the_unused_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(
-            giveaway_object.pretty_print(),
-            "[ ] AAAAA-BBBBB-CCCCC-DDDD [Store]"
-        );
+        assert_eq!(reward.pretty_print(), "[ ] AAAAA-BBBBB-CCCCC-DDDD [Store]");
     }
 
     #[test]
-    fn test_pretty_print_for_the_giveaway_object_in_the_pending_state() {
+    fn test_pretty_print_for_the_reward_in_the_pending_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut giveaway_object = GiveawayObject::new(text);
+        let mut reward = Reward::new(text);
 
-        giveaway_object.set_object_state(ObjectState::Pending);
-        assert_eq!(
-            giveaway_object.pretty_print(),
-            "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]"
-        );
+        reward.set_object_state(ObjectState::Pending);
+        assert_eq!(reward.pretty_print(), "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]");
     }
 
     #[test]
-    fn test_pretty_print_for_the_giveaway_object_in_the_activated_state() {
+    fn test_pretty_print_for_the_reward_in_the_activated_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut giveaway_object = GiveawayObject::new(text);
+        let mut reward = Reward::new(text);
 
-        giveaway_object.set_object_state(ObjectState::Activated);
+        reward.set_object_state(ObjectState::Activated);
         assert_eq!(
-            giveaway_object.pretty_print(),
+            reward.pretty_print(),
             "~~[+]AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
         );
     }
@@ -477,17 +459,17 @@ mod tests {
     #[test]
     fn test_pretty_print_for_an_unknown_object_in_the_unused_state() {
         let text = "just a text";
-        let giveaway_object = GiveawayObject::new(text);
+        let reward = Reward::new(text);
 
-        assert_eq!(giveaway_object.pretty_print(), "[ ] just a text");
+        assert_eq!(reward.pretty_print(), "[ ] just a text");
     }
 
     #[test]
     fn test_pretty_print_for_an_unknown_object_in_the_activated_state() {
         let text = "just a text";
-        let mut giveaway_object = GiveawayObject::new(text);
+        let mut reward = Reward::new(text);
 
-        giveaway_object.set_object_state(ObjectState::Activated);
-        assert_eq!(giveaway_object.pretty_print(), "~~[+] just a text~~");
+        reward.set_object_state(ObjectState::Activated);
+        assert_eq!(reward.pretty_print(), "~~[+] just a text~~");
     }
 }
