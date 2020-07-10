@@ -1,12 +1,19 @@
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crossbeam::atomic::AtomicCell;
+use dashmap::DashMap;
 use serenity::model::user::User as DiscordUser;
+use uuid::Uuid;
 
 use crate::commands::giveaway::utils::parse_message;
 use crate::error::{Error, ErrorKind, Result};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+pub type ConcurrencyReward = Arc<Box<Reward>>;
+pub type ConcurrencyRewardsVec = Arc<Mutex<Box<Vec<ConcurrencyReward>>>>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Participant {
     user_id: u64,
     username: String,
@@ -34,11 +41,47 @@ impl From<DiscordUser> for Participant {
 }
 
 #[derive(Clone, Debug)]
+pub struct ParticipantStats {
+    pending_rewards: HashSet<Uuid>,
+    retrieved_rewards: HashSet<Uuid>,
+}
+
+impl ParticipantStats {
+    pub fn new() -> Self {
+        ParticipantStats {
+            pending_rewards: HashSet::new(),
+            retrieved_rewards: HashSet::new(),
+        }
+    }
+
+    // Adds id of the reward that was taken (but haven't acked yet) by the user
+    pub fn add_pending_reward(&mut self, value: Uuid) {
+        self.pending_rewards.insert(value);
+    }
+
+    // Adds id of the reward that was taken by the user.
+    pub fn add_retrieved_reward(&mut self, value: Uuid) {
+        self.retrieved_rewards.insert(value);
+    }
+
+    // Returns set of rewards which aren't activated but was received by the user.
+    pub fn pending_rewards(&self) -> HashSet<Uuid> {
+        self.pending_rewards.clone()
+    }
+
+    // Returns a set of rewards successfully retrieved by the user.
+    pub fn retrieved_rewards(&self) -> HashSet<Uuid> {
+        self.retrieved_rewards.clone()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Giveaway {
     active: Arc<AtomicBool>,
     owner: Participant,
     description: String,
-    rewards: Arc<Mutex<Box<Vec<Arc<Box<Reward>>>>>>,
+    rewards: ConcurrencyRewardsVec,
+    stats: Arc<DashMap<u64, ParticipantStats>>,
 }
 
 impl Giveaway {
@@ -48,31 +91,37 @@ impl Giveaway {
             owner: Participant::from(discord_user.clone()),
             description: String::from(""),
             rewards: Arc::new(Mutex::new(Box::new(Vec::new()))),
+            stats: Arc::new(DashMap::new()),
         }
     }
 
-    // Returns a text description about the giveaway
+    // Returns a text description about the giveaway.
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = description.to_string();
         self
     }
 
-    // Returns information about who created the giveaway
+    // Returns information about who created the giveaway.
     pub fn owner(&self) -> &Participant {
         &self.owner
     }
 
-    // Checks that the giveaway has been started by the owner
+    // Returns latest statistics in according with the requested giveaway.
+    pub fn stats(&self) -> Arc<DashMap<u64, ParticipantStats>> {
+        self.stats.clone()
+    }
+
+    // Checks that the giveaway has been started by the owner.
     pub fn is_activated(&self) -> bool {
         self.active.load(Ordering::SeqCst)
     }
 
-    // Starts the giveaway
+    // Starts the giveaway.
     pub fn activate(&self) {
         self.active.store(true, Ordering::SeqCst)
     }
 
-    // Disables the giveaway (which is actually means "a pause state")
+    // Disables the giveaway (which is actually means "a pause state").
     pub fn deactivate(&self) {
         self.active.store(false, Ordering::SeqCst);
     }
@@ -143,13 +192,14 @@ impl PartialEq for Giveaway {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct Reward {
+    id: Uuid,
     value: String,
     description: Option<String>,
     object_info: Option<String>,
     object_type: ObjectType,
-    object_state: ObjectState,
+    object_state: AtomicCell<ObjectState>,
 }
 
 impl Reward {
@@ -157,12 +207,18 @@ impl Reward {
         let parse_result = parse_message(value);
 
         Reward {
+            id: Uuid::new_v4(),
             value: parse_result.value.clone(),
             description: parse_result.description.clone(),
             object_info: parse_result.object_info.clone(),
             object_type: parse_result.object_type,
-            object_state: ObjectState::Unused,
+            object_state: AtomicCell::new(ObjectState::Unused),
         }
+    }
+
+    // Returns a unique identifier of the reward.
+    pub fn id(&self) -> Uuid {
+        self.id.clone()
     }
 
     // Returns the reward's store key or a plain text
@@ -182,12 +238,12 @@ impl Reward {
 
     // Returns the current object state.
     pub fn get_object_state(&self) -> ObjectState {
-        self.object_state
+        self.object_state.load()
     }
 
     // Overrides the object state onto the new one.
-    pub fn set_object_state(&mut self, state: ObjectState) {
-        self.object_state = state;
+    pub fn set_object_state(&self, state: ObjectState) {
+        self.object_state.store(state);
     }
 
     // Returns detailed info for the giveaway owner when necessary to update the giveaway.
@@ -223,32 +279,53 @@ impl Reward {
                     None => format!("{}", self.value),
                 };
 
-                match self.object_state {
+                match self.object_state.load() {
                     // When is Activated show what was hidden behind the key
                     ObjectState::Activated => format!(
                         "{}{} -> {}",
-                        self.object_state.as_str(),
+                        self.object_state.load().as_str(),
                         key,
                         self.description.clone().unwrap_or(String::from("")),
                     ),
                     // For Unused/Pending states print minimal amount of info
-                    _ => format!("{} {}", self.object_state.as_str(), key),
+                    _ => format!("{} {}", self.object_state.load().as_str(), key),
                 }
             }
             // Print any non-keys as is
             ObjectType::Other => format!(
                 "{} {}{}",
-                self.object_state.as_str(),
+                self.object_state.load().as_str(),
                 self.value,
                 self.description.clone().unwrap_or(String::from("")),
             ),
         };
 
         // If the object was taken by someone, then cross out the text
-        match self.object_state == ObjectState::Activated {
+        match self.object_state.load() == ObjectState::Activated {
             true => format!("~~{}~~", text),
             false => text,
         }
+    }
+}
+
+impl Clone for Reward {
+    fn clone(&self) -> Self {
+        Reward {
+            id: self.id.clone(),
+            value: self.value.clone(),
+            description: self.description.clone(),
+            object_info: self.object_info.clone(),
+            object_type: self.object_type,
+            object_state: AtomicCell::new(self.object_state.load()),
+        }
+    }
+}
+
+impl Eq for Reward {}
+
+impl PartialEq for Reward {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -432,7 +509,7 @@ mod tests {
     #[test]
     fn test_set_reward_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut reward = Reward::new(text);
+        let reward = Reward::new(text);
 
         assert_eq!(reward.get_object_state(), ObjectState::Unused);
         reward.set_object_state(ObjectState::Pending);
@@ -442,7 +519,7 @@ mod tests {
     #[test]
     fn test_set_reward_state_for_other_type() {
         let text = "just a text";
-        let mut reward = Reward::new(text);
+        let reward = Reward::new(text);
 
         assert_eq!(reward.get_object_state(), ObjectState::Unused);
         reward.set_object_state(ObjectState::Pending);
@@ -460,7 +537,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_the_reward_in_the_pending_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut reward = Reward::new(text);
+        let reward = Reward::new(text);
 
         reward.set_object_state(ObjectState::Pending);
         assert_eq!(reward.pretty_print(), "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]");
@@ -469,7 +546,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_the_reward_in_the_activated_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let mut reward = Reward::new(text);
+        let reward = Reward::new(text);
 
         reward.set_object_state(ObjectState::Activated);
         assert_eq!(
@@ -489,7 +566,7 @@ mod tests {
     #[test]
     fn test_pretty_print_for_an_unknown_object_in_the_activated_state() {
         let text = "just a text";
-        let mut reward = Reward::new(text);
+        let reward = Reward::new(text);
 
         reward.set_object_state(ObjectState::Activated);
         assert_eq!(reward.pretty_print(), "~~[+] just a text~~");
