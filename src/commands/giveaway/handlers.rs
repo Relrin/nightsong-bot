@@ -21,6 +21,9 @@ use crate::storage::GiveawayStore;
     list_rewards,
     add_reward,
     remove_reward,
+
+    // Interaction with the giveaway
+    roll_reward,
 )]
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
@@ -305,6 +308,45 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
             .channel_id
             .say(&ctx.http, "The reward has been removed from the giveaway.")?,
         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
+    Ok(())
+}
+
+#[command("groll")]
+#[min_args(1)]
+#[help_available]
+#[example("!groll <number> <extra-args>")]
+#[description = "Roll the reward the certain giveaway"]
+fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `number` argument for the `groll` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStore>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.roll_reward(&msg.author, index, args.rest()) {
+        Ok(response) => match response {
+            Some(reward) => {
+                msg.channel_id.say(&ctx.http, &reward)?;
+            }
+            None => (),
+        },
+        Err(err) => {
+            msg.channel_id.say(&ctx.http, format!("{}", err))?;
+        }
     };
 
     Ok(())

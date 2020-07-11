@@ -50,7 +50,7 @@ impl<'a> RollOptions<'a> {
     }
 }
 
-pub trait GiveawayStrategy {
+pub trait GiveawayStrategy: Send + Sync {
     // Returns a reward in according with the passed roll options.
     fn roll(&self, options: &RollOptions) -> Result<Arc<Box<Reward>>>;
 

@@ -2,7 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use serenity::model::user::User as DiscordUser;
 
-use crate::commands::giveaway::models::{Giveaway, Reward};
+use crate::commands::giveaway::models::{
+    Giveaway, ObjectState, Participant, ParticipantStats, Reward,
+};
+use crate::commands::giveaway::strategies::RollOptions;
 use crate::error::{Error, ErrorKind, Result};
 
 #[derive(Debug)]
@@ -97,7 +100,7 @@ impl GiveawayManager {
         self.check_giveaway_owner(user, &giveaway)?;
 
         let rewards = giveaway
-            .get_rewards()
+            .get_available_rewards()
             .iter()
             .cloned()
             .collect::<Vec<Arc<Box<Reward>>>>();
@@ -130,9 +133,53 @@ impl GiveawayManager {
         Ok(())
     }
 
+    // Returns a reward from the requested giveaway in according with the set strategy.
+    pub fn roll_reward(
+        &self,
+        user: &DiscordUser,
+        index: usize,
+        raw_message: &str,
+    ) -> Result<Option<String>> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        self.check_giveaway_is_active(&giveaway)?;
+
+        let participant = Participant::from(user.clone());
+        let stats = giveaway.stats();
+        let rewards = giveaway.raw_rewards();
+        let roll_options = RollOptions::new(&participant, &rewards, raw_message, &stats);
+        let strategy = giveaway.strategy();
+        let selected_reward = strategy.roll(&roll_options)?;
+
+        let user_id = participant.get_user_id();
+        match stats.get_mut(&user_id) {
+            Some(mut data) => {
+                data.add_pending_reward(selected_reward.id());
+            }
+            None => {
+                stats.insert(user_id, ParticipantStats::new());
+                let mut data = stats.get_mut(&user_id).unwrap();
+                data.add_pending_reward(selected_reward.id());
+            }
+        };
+        selected_reward.set_object_state(ObjectState::Pending);
+
+        let response = strategy.to_message(selected_reward);
+        Ok(response)
+    }
+
     fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {
         if user.id.0 != giveaway.owner().get_user_id() {
             let message = format!("For interacting with this giveaway you need to be its owner.");
+            return Err(Error::from(ErrorKind::Giveaway(message)));
+        }
+
+        Ok(())
+    }
+
+    fn check_giveaway_is_active(&self, giveaway: &Giveaway) -> Result<()> {
+        if !giveaway.is_activated() {
+            let message =
+                format!("The giveaway hasn't started yet or has been suspended by the owner.");
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
@@ -146,7 +193,7 @@ mod tests {
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
     use crate::commands::giveaway::manager::GiveawayManager;
-    use crate::commands::giveaway::models::Giveaway;
+    use crate::commands::giveaway::models::{Giveaway, ObjectState, Reward};
     use crate::error::{Error, ErrorKind};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
@@ -395,7 +442,7 @@ mod tests {
         assert_eq!(result.is_ok(), true);
 
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
-        assert_eq!(updated_giveaway.get_rewards().len(), 1);
+        assert_eq!(updated_giveaway.get_available_rewards().len(), 1);
     }
 
     #[test]
@@ -481,6 +528,41 @@ mod tests {
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
                 "For interacting with this giveaway you need to be its owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_roll_reward_with_manual_select_strategy_by_default() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        let reward = Reward::new("something");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.roll_reward(&owner, 1, "1");
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), None);
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        let updated_rewards = updated_giveaway.get_available_rewards();
+        assert_eq!(updated_rewards[0].get_object_state(), ObjectState::Pending);
+    }
+
+    #[test]
+    fn test_get_error_for_inactive_giveaway_on_roll_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.roll_reward(&owner, 1, "1");
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The giveaway hasn't started yet or has been suspended by the owner."
             )))
         );
     }

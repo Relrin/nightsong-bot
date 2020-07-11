@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -7,6 +8,7 @@ use dashmap::DashMap;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
+use crate::commands::giveaway::strategies::{GiveawayStrategy, ManualSelectStrategy};
 use crate::commands::giveaway::utils::parse_message;
 use crate::error::{Error, ErrorKind, Result};
 
@@ -75,13 +77,14 @@ impl ParticipantStats {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Giveaway {
     active: Arc<AtomicBool>,
     owner: Participant,
     description: String,
     rewards: ConcurrencyRewardsVec,
     stats: Arc<DashMap<u64, ParticipantStats>>,
+    strategy: Arc<Box<dyn GiveawayStrategy>>,
 }
 
 impl Giveaway {
@@ -92,6 +95,7 @@ impl Giveaway {
             description: String::from(""),
             rewards: Arc::new(Mutex::new(Box::new(Vec::new()))),
             stats: Arc::new(DashMap::new()),
+            strategy: Arc::new(Box::new(ManualSelectStrategy::new())),
         }
     }
 
@@ -111,6 +115,16 @@ impl Giveaway {
         self.stats.clone()
     }
 
+    // Returns a list of all rewards as concurrent structure
+    pub fn raw_rewards(&self) -> ConcurrencyRewardsVec {
+        self.rewards.clone()
+    }
+
+    // Returns a current strategy for distributing rewards.
+    pub fn strategy(&self) -> Arc<Box<dyn GiveawayStrategy>> {
+        self.strategy.clone()
+    }
+
     // Checks that the giveaway has been started by the owner.
     pub fn is_activated(&self) -> bool {
         self.active.load(Ordering::SeqCst)
@@ -127,7 +141,7 @@ impl Giveaway {
     }
 
     // Returns a list of all available rewards.
-    pub fn get_rewards(&self) -> Vec<Arc<Box<Reward>>> {
+    pub fn get_available_rewards(&self) -> Vec<Arc<Box<Reward>>> {
         self.rewards
             .clone()
             .lock()
@@ -171,6 +185,17 @@ impl Giveaway {
             self.description,
             self.owner.get_user_id(),
         )
+    }
+}
+
+impl fmt::Debug for Giveaway {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Giveaway")
+            .field("active", &self.active.clone())
+            .field("owner", &self.owner.clone())
+            .field("description", &self.description.clone())
+            .field("stats", &self.stats.clone())
+            .finish()
     }
 }
 
@@ -384,7 +409,7 @@ mod tests {
         giveaway.add_reward(&reward_3);
 
         let rewards = giveaway
-            .get_rewards()
+            .get_available_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
@@ -398,7 +423,7 @@ mod tests {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
 
-        let rewards = giveaway.get_rewards();
+        let rewards = giveaway.get_available_rewards();
         assert_eq!(rewards.is_empty(), true);
     }
 
@@ -408,12 +433,12 @@ mod tests {
         let giveaway = Giveaway::new(&user);
         let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
 
-        let old_giveaway_rewards = giveaway.get_rewards();
+        let old_giveaway_rewards = giveaway.get_available_rewards();
         assert_eq!(old_giveaway_rewards.is_empty(), true);
 
         giveaway.add_reward(&reward);
         let updated_giveaway_rewards = giveaway
-            .get_rewards()
+            .get_available_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
@@ -429,12 +454,12 @@ mod tests {
         let giveaway = Giveaway::new(&user);
         let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
 
-        let old_giveaway_rewards = giveaway.get_rewards();
+        let old_giveaway_rewards = giveaway.get_available_rewards();
         assert_eq!(old_giveaway_rewards.is_empty(), true);
 
         giveaway.add_reward(&reward);
         let updated_giveaway_rewards = giveaway
-            .get_rewards()
+            .get_available_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();
@@ -445,7 +470,7 @@ mod tests {
 
         giveaway.remove_reward_by_index(1).unwrap();
         let latest_giveaway_rewards = giveaway
-            .get_rewards()
+            .get_available_rewards()
             .iter()
             .map(|obj| obj.pretty_print())
             .collect::<Vec<String>>();

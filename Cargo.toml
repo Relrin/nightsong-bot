@@ -9,7 +9,7 @@ readme = "README.md"
 [dependencies]
 crossbeam = "0.7.3"
 crossbeam-utils = "0.7.2"
-dashmap = "4.0.0-rc6"
+dashmap = "3.11.7"
 failure = "0.1.6"
 lazy_static = "1.4.0"
 rand = "0.7.3"

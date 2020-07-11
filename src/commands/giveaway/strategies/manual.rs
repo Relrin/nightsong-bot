@@ -7,6 +7,7 @@ use crate::commands::giveaway::models::{ConcurrencyReward, ObjectState, Reward};
 use crate::commands::giveaway::strategies::base::{GiveawayStrategy, RollOptions};
 use crate::error::{Error, ErrorKind, Result};
 
+#[derive(Debug)]
 pub struct ManualSelectStrategy;
 
 impl ManualSelectStrategy {
