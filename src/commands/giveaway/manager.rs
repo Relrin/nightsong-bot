@@ -1,6 +1,10 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use dashmap::DashMap;
+use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
+use uuid::Uuid;
 
 use crate::commands::giveaway::models::{
     Giveaway, ObjectState, Participant, ParticipantStats, Reward,
@@ -165,6 +169,98 @@ impl GiveawayManager {
 
         let response = strategy.to_message(selected_reward);
         Ok(response)
+    }
+
+    pub fn pretty_print_giveaway(
+        &self,
+        giveaway_index: usize,
+    ) -> Result<(Option<MessageId>, String)> {
+        let giveaway = self.get_giveaway_by_index(giveaway_index)?;
+        let stats = giveaway.stats();
+
+        let pending_rewards = self.extract_pending_rewards(&stats);
+        let retrieved_rewards = self.extract_retrieved_rewards(&stats);
+
+        let rewards_output = giveaway
+            .raw_rewards()
+            .clone()
+            .lock()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(index, obj)| {
+                let reward_id = obj.id();
+                let is_pending = pending_rewards.contains_key(&reward_id);
+                let is_retrieved = retrieved_rewards.contains_key(&reward_id);
+
+                match (is_pending, is_retrieved) {
+                    (true, false) => {
+                        let user_id = pending_rewards.get(&reward_id).unwrap();
+                        format!(
+                            "{}. {}  [taken by <@{}>]",
+                            index + 1,
+                            obj.pretty_print(),
+                            user_id
+                        )
+                    }
+                    (false, true) => {
+                        let user_id = retrieved_rewards.get(&reward_id).unwrap();
+                        format!(
+                            "{}. {}  [activated by <@{}>]",
+                            index + 1,
+                            obj.pretty_print(),
+                            user_id
+                        )
+                    }
+                    _ => format!("{}. {}", index + 1, obj.pretty_print()),
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let message_id = giveaway.get_message_id();
+        let response = format!("Giveaway #{}:\n{}", giveaway_index, rewards_output);
+        Ok((message_id, response))
+    }
+
+    fn extract_pending_rewards(
+        &self,
+        stats: &Arc<DashMap<u64, ParticipantStats>>,
+    ) -> HashMap<Uuid, u64> {
+        stats
+            .iter()
+            .map(|pair| {
+                let user_id = pair.key().clone();
+
+                let mut vec = Vec::new();
+                for reward_uuid in pair.value().pending_rewards() {
+                    vec.push((reward_uuid, user_id));
+                }
+
+                vec
+            })
+            .flatten()
+            .collect()
+    }
+
+    fn extract_retrieved_rewards(
+        &self,
+        stats: &Arc<DashMap<u64, ParticipantStats>>,
+    ) -> HashMap<Uuid, u64> {
+        stats
+            .iter()
+            .map(|pair| {
+                let user_id = pair.key().clone();
+
+                let mut vec = Vec::new();
+                for reward_uuid in pair.value().retrieved_rewards() {
+                    vec.push((reward_uuid, user_id));
+                }
+
+                vec
+            })
+            .flatten()
+            .collect()
     }
 
     fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {

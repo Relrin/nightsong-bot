@@ -5,11 +5,12 @@ use std::sync::{Arc, Mutex};
 
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
+use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
+use crate::commands::giveaway::parser::parse_message;
 use crate::commands::giveaway::strategies::{GiveawayStrategy, ManualSelectStrategy};
-use crate::commands::giveaway::utils::parse_message;
 use crate::error::{Error, ErrorKind, Result};
 
 pub type ConcurrencyReward = Arc<Box<Reward>>;
@@ -79,12 +80,23 @@ impl ParticipantStats {
 
 #[derive(Clone)]
 pub struct Giveaway {
+    // A flag that determines that current phase of the giveaway.
+    // true - The giveaway in active phase
+    // false - The giveaway in edit / pause phase
     active: Arc<AtomicBool>,
+    // A reference to the owner / create of the giveaway
     owner: Participant,
+    // A giveaway description.
     description: String,
+    // A list of attached rewards
     rewards: ConcurrencyRewardsVec,
+    // Collected stats for each users participated in the giveaway
     stats: Arc<DashMap<u64, ParticipantStats>>,
+    // Determines the algorithm for distributing rewards.
     strategy: Arc<Box<dyn GiveawayStrategy>>,
+    // A reference to the message which needs to update during the
+    // active giveaway phase.
+    message_id: Arc<AtomicCell<Option<MessageId>>>,
 }
 
 impl Giveaway {
@@ -96,6 +108,7 @@ impl Giveaway {
             rewards: Arc::new(Mutex::new(Box::new(Vec::new()))),
             stats: Arc::new(DashMap::new()),
             strategy: Arc::new(Box::new(ManualSelectStrategy::new())),
+            message_id: Arc::new(AtomicCell::new(None)),
         }
     }
 
@@ -118,6 +131,16 @@ impl Giveaway {
     // Returns a list of all rewards as concurrent structure
     pub fn raw_rewards(&self) -> ConcurrencyRewardsVec {
         self.rewards.clone()
+    }
+
+    // Returns a reference to the message that must be updated
+    pub fn get_message_id(&self) -> Option<MessageId> {
+        self.message_id.load()
+    }
+
+    // Overrides the message reference.
+    pub fn set_message_id(&self, message_id: Option<MessageId>) {
+        self.message_id.store(message_id)
     }
 
     // Returns a current strategy for distributing rewards.
@@ -219,11 +242,19 @@ impl PartialEq for Giveaway {
 
 #[derive(Debug)]
 pub struct Reward {
+    // A unique identifier of the reward in the giveaway(s)
     id: Uuid,
+    // The actual prize.
     value: String,
+    // Reward description
     description: Option<String>,
+    // Store an additional information about the reward (e.g. the online store,
+    // where the key can be activated)
     object_info: Option<String>,
+    // Determines the is the type of the reward. The games / store keys requires
+    // a different output rather then a plain text.
     object_type: ObjectType,
+    // Current state of the rewards (was activated, unused, etc.)
     object_state: AtomicCell<ObjectState>,
 }
 

@@ -6,7 +6,7 @@ use serenity::prelude::Context;
 use serenity::utils::MessageBuilder;
 
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
-use crate::storage::GiveawayStore;
+use crate::storage::GiveawayStorage;
 
 #[group]
 #[commands(
@@ -34,7 +34,7 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
     let giveaway_manager = ctx
         .data
         .read()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -68,7 +68,7 @@ fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -100,15 +100,18 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
     match giveaway_manager.activate_giveaway(&msg.author, index) {
-        Ok(_) => msg
-            .channel_id
-            .say(&ctx.http, "The giveaway has been started.")?,
-        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+        Ok(_) => {
+            let (_, response) = giveaway_manager.pretty_print_giveaway(index)?;
+            msg.channel_id.say(&ctx.http, &response)?;
+        }
+        Err(err) => {
+            msg.channel_id.say(&ctx.http, format!("{}", err))?;
+        }
     };
 
     Ok(())
@@ -135,7 +138,7 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -170,7 +173,7 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -205,7 +208,7 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -254,7 +257,7 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -299,7 +302,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -333,7 +336,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let giveaway_manager = ctx
         .data
         .write()
-        .get::<GiveawayStore>()
+        .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
 
@@ -346,6 +349,23 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         },
         Err(err) => {
             msg.channel_id.say(&ctx.http, format!("{}", err))?;
+        }
+    };
+
+    match giveaway_manager.pretty_print_giveaway(index) {
+        Ok((option_message_id, update_msg)) => {
+            match option_message_id {
+                Some(message_id) => {
+                    msg.channel_id
+                        .edit_message(&ctx.http, message_id, |m| m.content(&update_msg))?;
+                }
+                None => {
+                    msg.channel_id.say(&ctx.http, &update_msg)?;
+                }
+            };
+        }
+        Err(err) => {
+            println!("Cant't output the giveaway update: {}", err.to_string());
         }
     };
 

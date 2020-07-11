@@ -51,7 +51,7 @@ impl ManualSelectStrategy {
         if pending_rewards.len() > 0 {
             let message = format!(
                 "It's not possible to have more than one reward in \
-                the pending state. Please, activate previous reward, \
+                the pending state. Please, activate the previous reward, \
                 or invoke the `!greroll` command."
             );
             return Err(Error::from(ErrorKind::Giveaway(message)));
