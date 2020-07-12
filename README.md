@@ -19,7 +19,7 @@ Each command must be called with the `!` prefix in the beginning of each command
     - `gitems` - Display detailed info about the rewards in the giveaway
     - `gadd` - Add a new reward to the certain giveaway
     - `gremove` - Remove the reward from the certain giveaway
-    - `groll` - Roll the reward the certain giveaway
+    - `groll` - Roll the reward from the certain giveaway
     - `gconfirm` - Confirm that the reward was activated from the certain giveaway
     - `gdeny` - Return the reward back that can't be activated
 
