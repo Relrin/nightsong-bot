@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
 use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
@@ -193,39 +194,42 @@ impl GiveawayManager {
 
                 let user_stats = stats.get_mut(&user_id);
                 match user_stats {
-                    Some(mut data) => {
-                        let pending_rewards = data.pending_rewards();
-
-                        match selected_reward.get_object_state() {
-                            ObjectState::Activated => {
-                                let message = format!("The reward has been activated already.");
-                                return Err(Error::from(ErrorKind::Giveaway(message)));
-                            }
-                            ObjectState::Pending => {
-                                match pending_rewards.contains(&selected_reward.id()) {
-                                    true => {
-                                        data.remove_pending_reward(selected_reward.id());
-                                        data.add_retrieved_reward(selected_reward.id());
-                                        selected_reward.set_object_state(ObjectState::Activated);
-                                        Ok(())
-                                    }
-                                    false => {
-                                        let message =
-                                            format!("This reward can't be activated by others.");
-                                        return Err(Error::from(ErrorKind::Giveaway(message)));
-                                    }
-                                }
-                            }
-                            ObjectState::Unused => {
-                                let message =
-                                    format!("The reward must be rolled before confirming.");
-                                return Err(Error::from(ErrorKind::Giveaway(message)));
-                            }
-                        }
-                    }
+                    Some(mut data) => self.move_reward_to_retrieved(&mut data, &selected_reward),
                     None => {
                         stats.insert(user_id, ParticipantStats::new());
                         let message = format!("The reward must be rolled before confirming.");
+                        return Err(Error::from(ErrorKind::Giveaway(message)));
+                    }
+                }
+            }
+            false => {
+                let message = format!("The requested reward was not found.");
+                Err(Error::from(ErrorKind::Giveaway(message)))
+            }
+        }
+    }
+
+    // Return the certain reward to the unused state and cleanup the user's stats
+    pub fn deny_reward(&self, user: &DiscordUser, index: usize, reward_index: usize) -> Result<()> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        self.check_giveaway_is_active(&giveaway)?;
+
+        let ref_rewards = giveaway.raw_rewards().clone();
+        let guard_rewards = ref_rewards.lock().unwrap();
+
+        match reward_index > 0 && reward_index < guard_rewards.len() + 1 {
+            true => {
+                let participant = Participant::from(user.clone());
+                let stats = giveaway.stats();
+                let user_id = participant.get_user_id();
+                let selected_reward = guard_rewards[reward_index - 1].clone();
+
+                let user_stats = stats.get_mut(&user_id);
+                match user_stats {
+                    Some(mut data) => self.rollback_reward_to_unused(&mut data, &selected_reward),
+                    None => {
+                        stats.insert(user_id, ParticipantStats::new());
+                        let message = format!("The reward must be rolled before return.");
                         return Err(Error::from(ErrorKind::Giveaway(message)));
                     }
                 }
@@ -287,6 +291,68 @@ impl GiveawayManager {
         let message_id = giveaway.get_message_id();
         let response = format!("Giveaway #{}:\n{}", giveaway_index, rewards_output);
         Ok((message_id, response))
+    }
+
+    // A special wrapper to help with moving the reward in the retrieved group in stats
+    fn move_reward_to_retrieved(
+        &self,
+        data: &mut RefMut<u64, ParticipantStats>,
+        reward: &Arc<Box<Reward>>,
+    ) -> Result<()> {
+        let pending_rewards = data.pending_rewards();
+
+        match reward.get_object_state() {
+            ObjectState::Activated => {
+                let message = format!("The reward has been activated already.");
+                return Err(Error::from(ErrorKind::Giveaway(message)));
+            }
+            ObjectState::Pending => match pending_rewards.contains(&reward.id()) {
+                true => {
+                    data.remove_pending_reward(reward.id());
+                    data.add_retrieved_reward(reward.id());
+                    reward.set_object_state(ObjectState::Activated);
+                    Ok(())
+                }
+                false => {
+                    let message = format!("This reward can't be activated by others.");
+                    return Err(Error::from(ErrorKind::Giveaway(message)));
+                }
+            },
+            ObjectState::Unused => {
+                let message = format!("The reward must be rolled before confirming.");
+                return Err(Error::from(ErrorKind::Giveaway(message)));
+            }
+        }
+    }
+
+    fn rollback_reward_to_unused(
+        &self,
+        data: &mut RefMut<u64, ParticipantStats>,
+        reward: &Arc<Box<Reward>>,
+    ) -> Result<()> {
+        let pending_rewards = data.pending_rewards();
+
+        match reward.get_object_state() {
+            ObjectState::Activated => {
+                let message = format!("The reward has been activated already.");
+                return Err(Error::from(ErrorKind::Giveaway(message)));
+            }
+            ObjectState::Pending => match pending_rewards.contains(&reward.id()) {
+                true => {
+                    data.remove_pending_reward(reward.id());
+                    reward.set_object_state(ObjectState::Unused);
+                    Ok(())
+                }
+                false => {
+                    let message = format!("This reward can't be returned by others.");
+                    return Err(Error::from(ErrorKind::Giveaway(message)));
+                }
+            },
+            ObjectState::Unused => {
+                let message = format!("The reward must be rolled before return.");
+                return Err(Error::from(ErrorKind::Giveaway(message)));
+            }
+        }
     }
 
     fn extract_pending_rewards(
@@ -888,6 +954,167 @@ mod tests {
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
                 "The reward must be rolled before confirming."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        let reward = Reward::new("something");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        let result = manager.deny_reward(&owner, 1, 1);
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), ());
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_giveaway_index_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deny_reward(&owner, 2, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_giveaway_in_the_inactive_state_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deny_reward(&owner, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The giveaway hasn't started yet or has been suspended by the owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_reward_index_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deny_reward(&owner, 1, 10);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested reward was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_already_activated_reward_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.confirm_reward(&owner, 1, 1).unwrap();
+        let result = manager.deny_reward(&owner, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward has been activated already."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_user_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "SomeUser");
+        let reward_1 = Reward::new("something");
+        let reward_2 = Reward::new("something else");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward_1);
+        giveaway.add_reward(&reward_2);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&user, 1, "2").unwrap();
+        let result = manager.deny_reward(&user, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "This reward can't be returned by others."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_unused_reward_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "SomeUser");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.deny_reward(&user, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward must be rolled before return."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_first_command_by_user_in_giveaway_on_deny_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "SomeUser");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        let result = manager.deny_reward(&user, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward must be rolled before return."
             )))
         );
     }

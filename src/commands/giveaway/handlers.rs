@@ -26,6 +26,7 @@ use crate::storage::GiveawayStorage;
     // Interaction with the giveaway
     roll_reward,
     confirm_reward,
+    deny_reward,
 )]
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
@@ -363,7 +364,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
 #[max_args(2)]
 #[help_available]
 #[example("!gconfirm <giveaway-number> <reward-number>")]
-#[description = "Confirm that the reward was activated from the certain giveaway."]
+#[description = "Confirm that the reward was activated from the certain giveaway"]
 fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
@@ -394,6 +395,52 @@ fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
         .expect("Expected GiveawayManager in ShareMap.");
 
     match giveaway_manager.confirm_reward(&msg.author, index, reward_index) {
+        Ok(_) => (),
+        Err(err) => {
+            msg.reply(&ctx.http, format!("{}", err))?;
+        }
+    };
+
+    update_giveaway_message(ctx, msg, &giveaway_manager, index);
+    Ok(())
+}
+
+#[command("gdeny")]
+#[min_args(2)]
+#[max_args(2)]
+#[help_available]
+#[example("!gdeny <giveaway-number> <reward-number>")]
+#[description = "Return the reward back that can't be activated"]
+fn deny_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `giveaway-number` argument for the `gdeny` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+    let reward_index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `reward-number` argument for the `gdeny` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStorage>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.deny_reward(&msg.author, index, reward_index) {
         Ok(_) => (),
         Err(err) => {
             msg.reply(&ctx.http, format!("{}", err))?;

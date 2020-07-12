@@ -20,15 +20,15 @@ pub fn update_giveaway_message(
                         .channel_id
                         .edit_message(&ctx.http, message_id, |m| m.content(&update_msg))
                     {
-                        Ok(_msg) => (),
-                        Err(err) => {
-                            msg.channel_id.say(&ctx.http, &update_msg).unwap();
+                        Ok(_) => (),
+                        Err(_) => {
+                            msg.channel_id.say(&ctx.http, &update_msg).unwrap();
                         }
                     }
                 }
                 // Send a new message in the chat (if it was missing by some reason)
                 None => match msg.channel_id.say(&ctx.http, &update_msg) {
-                    Ok(_msg) => (),
+                    Ok(_) => (),
                     Err(err) => {
                         println!(
                             "Impossible to output the giveaway message in the channel. Reason: {}",
