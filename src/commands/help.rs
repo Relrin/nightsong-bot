@@ -15,5 +15,5 @@ pub fn get_commands_list(
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, &help_options, groups, owners)
+    help_commands::plain(context, msg, args, &help_options, groups, owners)
 }

@@ -29,6 +29,7 @@ use crate::storage::GiveawayStorage;
     deny_reward,
 )]
 #[description = "Commands for managing giveaways"]
+#[help_available]
 struct Giveaway;
 
 #[command("glist")]
@@ -62,7 +63,8 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command("gcreate")]
 #[min_args(1)]
 #[help_available]
-#[example("!gcreate <description>")]
+#[usage("<description>")]
+#[example("My new Steam / EGS games giveaway.")]
 #[description = "Create a new giveaway"]
 fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let description = args.message();
@@ -86,7 +88,8 @@ fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gstart <giveaway-number>")]
+#[usage("<giveaway-number>")]
+#[example("1")]
 #[description = "Start the certain giveaway"]
 fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -124,7 +127,8 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gdeactivate <giveaway-number>")]
+#[usage("<giveaway-number>")]
+#[example("1")]
 #[description = "Deactivates the giveaway by the given number"]
 fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -159,7 +163,8 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gfinish <giveaway-number>")]
+#[usage("<giveaway-number>")]
+#[example("1")]
 #[description = "Finishes and deletes the giveaway by the given number"]
 fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -194,7 +199,8 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gitems <giveaway-number>")]
+#[usage("<giveaway-number>")]
+#[example("1")]
 #[description = "Display detailed info about the rewards in the giveaway for the owner."]
 fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -242,7 +248,9 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 #[command("gadd")]
 #[min_args(2)]
 #[help_available]
-#[example("!gadd <giveaway-number> <description>")]
+#[usage("<giveaway-number> <description>")]
+#[example("1 Just a plain text with some description about the reward")]
+#[example("1 AAAAA-BBBBB-CCCCC-DDDD [Store name] -> Game name")]
 #[description = "Adds a new reward to the certain giveaway"]
 fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -278,7 +286,8 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
 #[min_args(2)]
 #[max_args(2)]
 #[help_available]
-#[example("!gremove <giveaway-number> <reward-to-remove>")]
+#[usage("<giveaway-number> <reward-to-remove>")]
+#[example("1 1")]
 #[description = "Removes the reward from the certain giveaway"]
 fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -322,7 +331,8 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
 #[command("groll")]
 #[min_args(1)]
 #[help_available]
-#[example("!groll <giveaway-number> <extra-args>")]
+#[usage("<giveaway-number> <reward-number>")]
+#[example("1 1")]
 #[description = "Roll the reward the certain giveaway"]
 fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -363,7 +373,8 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
 #[min_args(2)]
 #[max_args(2)]
 #[help_available]
-#[example("!gconfirm <giveaway-number> <reward-number>")]
+#[usage("<giveaway-number> <reward-number>")]
+#[example("1 1")]
 #[description = "Confirm that the reward was activated from the certain giveaway"]
 fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -409,7 +420,8 @@ fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 #[min_args(2)]
 #[max_args(2)]
 #[help_available]
-#[example("!gdeny <giveaway-number> <reward-number>")]
+#[usage("<giveaway-number> <reward-number>")]
+#[example("1 1")]
 #[description = "Return the reward back that can't be activated"]
 fn deny_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
