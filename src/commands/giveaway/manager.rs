@@ -171,6 +171,72 @@ impl GiveawayManager {
         Ok(response)
     }
 
+    // Confirm that the reward was received and has been activated.
+    pub fn confirm_reward(
+        &self,
+        user: &DiscordUser,
+        index: usize,
+        reward_index: usize,
+    ) -> Result<()> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        self.check_giveaway_is_active(&giveaway)?;
+
+        let ref_rewards = giveaway.raw_rewards().clone();
+        let guard_rewards = ref_rewards.lock().unwrap();
+
+        match reward_index > 0 && reward_index < guard_rewards.len() + 1 {
+            true => {
+                let participant = Participant::from(user.clone());
+                let stats = giveaway.stats();
+                let user_id = participant.get_user_id();
+                let selected_reward = guard_rewards[reward_index - 1].clone();
+
+                let user_stats = stats.get_mut(&user_id);
+                match user_stats {
+                    Some(mut data) => {
+                        let pending_rewards = data.pending_rewards();
+
+                        match selected_reward.get_object_state() {
+                            ObjectState::Activated => {
+                                let message = format!("The reward has been activated already.");
+                                return Err(Error::from(ErrorKind::Giveaway(message)));
+                            }
+                            ObjectState::Pending => {
+                                match pending_rewards.contains(&selected_reward.id()) {
+                                    true => {
+                                        data.remove_pending_reward(selected_reward.id());
+                                        data.add_retrieved_reward(selected_reward.id());
+                                        selected_reward.set_object_state(ObjectState::Activated);
+                                        Ok(())
+                                    }
+                                    false => {
+                                        let message =
+                                            format!("This reward can't be activated by others.");
+                                        return Err(Error::from(ErrorKind::Giveaway(message)));
+                                    }
+                                }
+                            }
+                            ObjectState::Unused => {
+                                let message =
+                                    format!("The reward must be rolled before confirming.");
+                                return Err(Error::from(ErrorKind::Giveaway(message)));
+                            }
+                        }
+                    }
+                    None => {
+                        stats.insert(user_id, ParticipantStats::new());
+                        let message = format!("The reward must be rolled before confirming.");
+                        return Err(Error::from(ErrorKind::Giveaway(message)));
+                    }
+                }
+            }
+            false => {
+                let message = format!("The requested reward was not found.");
+                Err(Error::from(ErrorKind::Giveaway(message)))
+            }
+        }
+    }
+
     pub fn pretty_print_giveaway(
         &self,
         giveaway_index: usize,
@@ -659,6 +725,169 @@ mod tests {
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
                 "The giveaway hasn't started yet or has been suspended by the owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        let reward = Reward::new("something");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        let result = manager.confirm_reward(&owner, 1, 1);
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), ());
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_giveaway_index_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.confirm_reward(&owner, 2, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_giveaway_in_the_inactive_state_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.confirm_reward(&owner, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The giveaway hasn't started yet or has been suspended by the owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_reward_index_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.confirm_reward(&owner, 1, 10);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested reward was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_already_activated_reward_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.confirm_reward(&owner, 1, 1).unwrap();
+        let result = manager.confirm_reward(&owner, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward has been activated already."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_user_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "SomeUser");
+        let reward_1 = Reward::new("something");
+        let reward_2 = Reward::new("something else");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward_1);
+        giveaway.add_reward(&reward_2);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&user, 1, "2").unwrap();
+        let result = manager.confirm_reward(&user, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "This reward can't be activated by others."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_unused_reward_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward_1 = Reward::new("something");
+        let reward_2 = Reward::new("something else");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward_1);
+        giveaway.add_reward(&reward_2);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        let result = manager.confirm_reward(&owner, 1, 2);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward must be rolled before confirming."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_first_command_by_user_in_giveaway_on_confirm_reward() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "SomeUser");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        manager.roll_reward(&owner, 1, "1").unwrap();
+        let result = manager.confirm_reward(&user, 1, 1);
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The reward must be rolled before confirming."
             )))
         );
     }

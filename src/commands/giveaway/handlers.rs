@@ -6,6 +6,7 @@ use serenity::prelude::Context;
 use serenity::utils::MessageBuilder;
 
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
+use crate::commands::giveaway::utils::update_giveaway_message;
 use crate::storage::GiveawayStorage;
 
 #[group]
@@ -24,6 +25,7 @@ use crate::storage::GiveawayStorage;
 
     // Interaction with the giveaway
     roll_reward,
+    confirm_reward,
 )]
 #[description = "Commands for managing giveaways"]
 struct Giveaway;
@@ -83,7 +85,7 @@ fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gstart <number>")]
+#[example("!gstart <giveaway-number>")]
 #[description = "Start the certain giveaway"]
 fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -91,7 +93,7 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gstart` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gstart` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -121,7 +123,7 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gdeactivate <number>")]
+#[example("!gdeactivate <giveaway-number>")]
 #[description = "Deactivates the giveaway by the given number"]
 fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -129,7 +131,7 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gdeactivate` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gdeactivate` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -156,7 +158,7 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gfinish <number>")]
+#[example("!gfinish <giveaway-number>")]
 #[description = "Finishes and deletes the giveaway by the given number"]
 fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -164,7 +166,7 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gfinish` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gfinish` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -191,7 +193,7 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
 #[min_args(1)]
 #[max_args(1)]
 #[help_available]
-#[example("!gitems <number>")]
+#[example("!gitems <giveaway-number>")]
 #[description = "Display detailed info about the rewards in the giveaway for the owner."]
 fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -199,7 +201,7 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gitems` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gitems` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -239,7 +241,7 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 #[command("gadd")]
 #[min_args(2)]
 #[help_available]
-#[example("!gadd <number> <description>")]
+#[example("!gadd <giveaway-number> <description>")]
 #[description = "Adds a new reward to the certain giveaway"]
 fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -247,7 +249,7 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gadd` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gadd` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -275,7 +277,7 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
 #[min_args(2)]
 #[max_args(2)]
 #[help_available]
-#[example("!gremove <number> <reward-to-remove>")]
+#[example("!gremove <giveaway-number> <reward-to-remove>")]
 #[description = "Removes the reward from the certain giveaway"]
 fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -283,7 +285,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `gremove` command must be a positive integer.",
+                "The `giveaway-number` argument for the `gremove` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -319,7 +321,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
 #[command("groll")]
 #[min_args(1)]
 #[help_available]
-#[example("!groll <number> <extra-args>")]
+#[example("!groll <giveaway-number> <extra-args>")]
 #[description = "Roll the reward the certain giveaway"]
 fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
@@ -327,7 +329,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         Err(_) => {
             msg.channel_id.say(
                 &ctx.http,
-                "The `number` argument for the `groll` command must be a positive integer.",
+                "The `giveaway-number` argument for the `groll` command must be a positive integer.",
             )?;
             return Ok(());
         }
@@ -352,22 +354,52 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         }
     };
 
-    match giveaway_manager.pretty_print_giveaway(index) {
-        Ok((option_message_id, update_msg)) => {
-            match option_message_id {
-                Some(message_id) => {
-                    msg.channel_id
-                        .edit_message(&ctx.http, message_id, |m| m.content(&update_msg))?;
-                }
-                None => {
-                    msg.channel_id.say(&ctx.http, &update_msg)?;
-                }
-            };
+    update_giveaway_message(ctx, msg, &giveaway_manager, index);
+    Ok(())
+}
+
+#[command("gconfirm")]
+#[min_args(2)]
+#[max_args(2)]
+#[help_available]
+#[example("!gconfirm <giveaway-number> <reward-number>")]
+#[description = "Confirm that the reward was activated from the certain giveaway."]
+fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `giveaway-number` argument for the `gconfirm` command must be a positive integer.",
+            )?;
+            return Ok(());
         }
-        Err(err) => {
-            println!("Cant't output the giveaway update: {}", err.to_string());
+    };
+    let reward_index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `reward-number` argument for the `gconfirm` command must be a positive integer.",
+            )?;
+            return Ok(());
         }
     };
 
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStorage>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.confirm_reward(&msg.author, index, reward_index) {
+        Ok(_) => (),
+        Err(err) => {
+            msg.reply(&ctx.http, format!("{}", err))?;
+        }
+    };
+
+    update_giveaway_message(ctx, msg, &giveaway_manager, index);
     Ok(())
 }

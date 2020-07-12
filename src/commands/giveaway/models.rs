@@ -57,16 +57,6 @@ impl ParticipantStats {
         }
     }
 
-    // Adds id of the reward that was taken (but haven't acked yet) by the user
-    pub fn add_pending_reward(&mut self, value: Uuid) {
-        self.pending_rewards.insert(value);
-    }
-
-    // Adds id of the reward that was taken by the user.
-    pub fn add_retrieved_reward(&mut self, value: Uuid) {
-        self.retrieved_rewards.insert(value);
-    }
-
     // Returns set of rewards which aren't activated but was received by the user.
     pub fn pending_rewards(&self) -> HashSet<Uuid> {
         self.pending_rewards.clone()
@@ -75,6 +65,21 @@ impl ParticipantStats {
     // Returns a set of rewards successfully retrieved by the user.
     pub fn retrieved_rewards(&self) -> HashSet<Uuid> {
         self.retrieved_rewards.clone()
+    }
+
+    // Adds id of the reward that was taken (but haven't acked yet) by the user
+    pub fn add_pending_reward(&mut self, value: Uuid) {
+        self.pending_rewards.insert(value);
+    }
+
+    // Deletes pending reward from the hashset
+    pub fn remove_pending_reward(&mut self, value: Uuid) {
+        self.pending_rewards.remove(&value);
+    }
+
+    // Adds id of the reward that was taken by the user.
+    pub fn add_retrieved_reward(&mut self, value: Uuid) {
+        self.retrieved_rewards.insert(value);
     }
 }
 

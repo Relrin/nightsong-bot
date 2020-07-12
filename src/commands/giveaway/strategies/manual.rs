@@ -207,7 +207,7 @@ mod tests {
             result.unwrap_err(),
             Error::from(ErrorKind::Giveaway(format!(
                 "It's not possible to have more than one reward in \
-                the pending state. Please, activate previous reward, \
+                the pending state. Please, activate the previous reward, \
                 or invoke the `!greroll` command."
             )))
         );
