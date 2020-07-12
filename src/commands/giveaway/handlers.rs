@@ -333,7 +333,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
 #[help_available]
 #[usage("<giveaway-number> <reward-number>")]
 #[example("1 1")]
-#[description = "Roll the reward the certain giveaway"]
+#[description = "Roll the reward from the certain giveaway"]
 fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,

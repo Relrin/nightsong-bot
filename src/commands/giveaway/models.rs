@@ -343,7 +343,7 @@ impl Reward {
                 match self.object_state.load() {
                     // When is Activated show what was hidden behind the key
                     ObjectState::Activated => format!(
-                        "{}{} -> {}",
+                        "{} {} -> {}",
                         self.object_state.load().as_str(),
                         key,
                         self.description.clone().unwrap_or(String::from("")),
