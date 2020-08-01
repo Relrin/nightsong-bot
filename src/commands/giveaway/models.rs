@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crossbeam::atomic::AtomicCell;
@@ -15,6 +15,7 @@ use crate::error::{Error, ErrorKind, Result};
 
 pub type ConcurrencyReward = Arc<Box<Reward>>;
 pub type ConcurrencyRewardsVec = Arc<Mutex<Box<Vec<ConcurrencyReward>>>>;
+pub const OUTPUT_AFTER_GIVEAWAY_COMMANDS: u64 = 15;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Participant {
@@ -102,6 +103,12 @@ pub struct Giveaway {
     // A reference to the message which needs to update during the
     // active giveaway phase.
     message_id: Arc<AtomicCell<Option<MessageId>>>,
+    // Defines how many actions are required for printing the current
+    // state of the giveaway.
+    actions_required_to_output: u64,
+    // An internal counter for periodic output the state of
+    // the giveaway.
+    actions_processed: Arc<AtomicU64>,
 }
 
 impl Giveaway {
@@ -114,6 +121,8 @@ impl Giveaway {
             stats: Arc::new(DashMap::new()),
             strategy: Arc::new(Box::new(ManualSelectStrategy::new())),
             message_id: Arc::new(AtomicCell::new(None)),
+            actions_required_to_output: OUTPUT_AFTER_GIVEAWAY_COMMANDS,
+            actions_processed: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -166,6 +175,26 @@ impl Giveaway {
     // Disables the giveaway (which is actually means "a pause state").
     pub fn deactivate(&self) {
         self.active.store(false, Ordering::SeqCst);
+        self.reset_actions_processed();
+    }
+
+    // Increase the action processed counter by one.
+    pub fn update_actions_processed(&self) {
+        let current_value = self.actions_processed.load(Ordering::SeqCst);
+        self.actions_processed
+            .store(current_value + 1, Ordering::SeqCst);
+    }
+
+    // Resets the action processed counter to zero.
+    pub fn reset_actions_processed(&self) {
+        self.actions_processed.store(0, Ordering::SeqCst);
+    }
+
+    // Checks that the `action_processed` counter is equal to the
+    // defined limits stored in `actions_required_to_output` field.
+    pub fn is_required_state_output(&self) -> bool {
+        let current_value = self.actions_processed.load(Ordering::SeqCst);
+        current_value == self.actions_required_to_output
     }
 
     // Returns a list of all available rewards.
@@ -419,10 +448,14 @@ impl ObjectState {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
+
     use serenity::model::id::UserId;
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
-    use crate::commands::giveaway::models::{Giveaway, ObjectState, ObjectType, Reward};
+    use crate::commands::giveaway::models::{
+        Giveaway, ObjectState, ObjectType, Reward, OUTPUT_AFTER_GIVEAWAY_COMMANDS,
+    };
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
@@ -515,6 +548,103 @@ mod tests {
             false
         );
         assert_eq!(latest_giveaway_rewards.is_empty(), true);
+    }
+
+    #[test]
+    fn test_update_giveaway_actions_processed_counter() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn test_reset_giveaway_actions_processed() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 3);
+
+        giveaway.reset_actions_processed();
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_reset_giveaway_actions_processed_after_deactivate() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        giveaway.update_actions_processed();
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 3);
+
+        giveaway.deactivate();
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_is_required_giveaway_state_output_before_reaching_limits_is_false() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+
+        let commands_count = OUTPUT_AFTER_GIVEAWAY_COMMANDS - 1;
+        for _ in 0..commands_count {
+            giveaway.update_actions_processed();
+        }
+
+        assert_eq!(giveaway.is_required_state_output(), false);
+        assert_eq!(
+            giveaway.actions_processed.load(Ordering::SeqCst),
+            commands_count
+        );
+    }
+
+    #[test]
+    fn test_is_required_giveaway_state_output_after_reaching_limits_is_true() {
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user);
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+
+        assert_eq!(giveaway.actions_processed.load(Ordering::SeqCst), 0);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            giveaway.update_actions_processed();
+        }
+
+        assert_eq!(giveaway.is_required_state_output(), true);
+        assert_eq!(
+            giveaway.actions_processed.load(Ordering::SeqCst),
+            OUTPUT_AFTER_GIVEAWAY_COMMANDS
+        );
     }
 
     // ---- GiveawayObject struct tests ----

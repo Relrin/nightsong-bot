@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 
 use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
-use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
@@ -168,6 +167,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let participant = Participant::from(user.clone());
         let stats = giveaway.stats();
         let rewards = giveaway.raw_rewards();
@@ -202,6 +203,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let ref_rewards = giveaway.raw_rewards().clone();
         let guard_rewards = ref_rewards.lock().unwrap();
 
@@ -234,6 +237,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let ref_rewards = giveaway.raw_rewards().clone();
         let guard_rewards = ref_rewards.lock().unwrap();
 
@@ -261,10 +266,14 @@ impl GiveawayManager {
         }
     }
 
-    pub fn pretty_print_giveaway(
-        &self,
-        giveaway_index: usize,
-    ) -> Result<(Option<MessageId>, String)> {
+    // Checks that whether the certain giveaway needs to be printed out
+    pub fn is_required_state_output(&self, index: usize) -> Result<bool> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        Ok(giveaway.is_required_state_output())
+    }
+
+    // Returns a pretty print of the giveaway state
+    pub fn pretty_print_giveaway(&self, giveaway_index: usize) -> Result<String> {
         let giveaway = self.get_giveaway_by_index(giveaway_index)?;
         let stats = giveaway.stats();
 
@@ -308,9 +317,8 @@ impl GiveawayManager {
             .collect::<Vec<String>>()
             .join("\n");
 
-        let message_id = giveaway.get_message_id();
         let response = format!("Giveaway #{}:\n{}", giveaway_index, rewards_output);
-        Ok((message_id, response))
+        Ok(response)
     }
 
     // A special wrapper to help with moving the reward in the retrieved group in stats
@@ -441,7 +449,9 @@ mod tests {
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
     use crate::commands::giveaway::manager::GiveawayManager;
-    use crate::commands::giveaway::models::{Giveaway, ObjectState, Reward};
+    use crate::commands::giveaway::models::{
+        Giveaway, ObjectState, Reward, OUTPUT_AFTER_GIVEAWAY_COMMANDS,
+    };
     use crate::error::{Error, ErrorKind};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
@@ -1187,5 +1197,59 @@ mod tests {
                 "The reward must be rolled before return."
             )))
         );
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_roll_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.roll_reward(&owner, 1, "1").ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_confirm_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.confirm_reward(&owner, 1, 1).ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_deny_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.deny_reward(&owner, 1, 1).ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
     }
 }
