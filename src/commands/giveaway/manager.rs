@@ -168,6 +168,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let participant = Participant::from(user.clone());
         let stats = giveaway.stats();
         let rewards = giveaway.raw_rewards();
@@ -202,6 +204,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let ref_rewards = giveaway.raw_rewards().clone();
         let guard_rewards = ref_rewards.lock().unwrap();
 
@@ -234,6 +238,8 @@ impl GiveawayManager {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
 
+        giveaway.update_actions_processed();
+
         let ref_rewards = giveaway.raw_rewards().clone();
         let guard_rewards = ref_rewards.lock().unwrap();
 
@@ -259,6 +265,12 @@ impl GiveawayManager {
                 Err(Error::from(ErrorKind::Giveaway(message)))
             }
         }
+    }
+
+    // Checks that whether the certain giveaway needs to be printed out
+    pub fn is_required_state_output(&self, index: usize) -> Result<bool> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        Ok(giveaway.is_required_state_output())
     }
 
     pub fn pretty_print_giveaway(
