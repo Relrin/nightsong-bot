@@ -6,7 +6,7 @@ use serenity::prelude::Context;
 use serenity::utils::MessageBuilder;
 
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
-use crate::commands::giveaway::utils::update_giveaway_message;
+use crate::commands::giveaway::utils::{periodic_giveaway_state_output, update_giveaway_message};
 use crate::storage::GiveawayStorage;
 
 #[group]
@@ -113,7 +113,7 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 
     match giveaway_manager.activate_giveaway(&msg.author, index) {
         Ok(_) => {
-            let (_, response) = giveaway_manager.pretty_print_giveaway(index)?;
+            let response = giveaway_manager.pretty_print_giveaway(index)?;
             msg.channel_id.say(&ctx.http, &response)?;
         }
         Err(err) => {
@@ -402,6 +402,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     };
 
     update_giveaway_message(ctx, msg, &giveaway_manager, index);
+    periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
     Ok(())
 }
 
@@ -449,6 +450,7 @@ fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
     };
 
     update_giveaway_message(ctx, msg, &giveaway_manager, index);
+    periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
     Ok(())
 }
 
@@ -496,5 +498,6 @@ fn deny_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     };
 
     update_giveaway_message(ctx, msg, &giveaway_manager, index);
+    periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
     Ok(())
 }

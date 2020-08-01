@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 
 use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
-use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
@@ -273,10 +272,8 @@ impl GiveawayManager {
         Ok(giveaway.is_required_state_output())
     }
 
-    pub fn pretty_print_giveaway(
-        &self,
-        giveaway_index: usize,
-    ) -> Result<(Option<MessageId>, String)> {
+    // Returns a pretty print of the giveaway state
+    pub fn pretty_print_giveaway(&self, giveaway_index: usize) -> Result<String> {
         let giveaway = self.get_giveaway_by_index(giveaway_index)?;
         let stats = giveaway.stats();
 
@@ -320,9 +317,8 @@ impl GiveawayManager {
             .collect::<Vec<String>>()
             .join("\n");
 
-        let message_id = giveaway.get_message_id();
         let response = format!("Giveaway #{}:\n{}", giveaway_index, rewards_output);
-        Ok((message_id, response))
+        Ok(response)
     }
 
     // A special wrapper to help with moving the reward in the retrieved group in stats
