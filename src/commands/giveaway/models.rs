@@ -612,7 +612,7 @@ mod tests {
         reward.set_object_state(ObjectState::Activated);
         assert_eq!(
             reward.pretty_print(),
-            "~~[+]AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
+            "~~[+] AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
         );
     }
 

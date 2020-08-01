@@ -124,6 +124,26 @@ impl GiveawayManager {
         Ok(())
     }
 
+    // Parses the given message into multiple reward and then adds them to the
+    // certain giveaway. The separator is the `\n` (just a new line) for the
+    // each declared reward. Owners can add rewards only for their own giveaways.
+    pub fn add_multiple_giveaway_rewards(
+        &self,
+        user: &DiscordUser,
+        index: usize,
+        data: &str,
+    ) -> Result<()> {
+        let giveaway = self.get_giveaway_by_index(index)?;
+        self.check_giveaway_owner(user, &giveaway)?;
+
+        for raw_reward_data in data.split("\n") {
+            let reward = Reward::new(raw_reward_data);
+            giveaway.add_reward(&reward);
+        }
+
+        Ok(())
+    }
+
     // Removed the giveaway from the certain giveaways. Owners can remove rewards
     // only for their own giveaways.
     pub fn remove_giveaway_reward(
@@ -699,6 +719,56 @@ mod tests {
         manager.add_giveaway(giveaway);
 
         let result = manager.add_giveaway_reward(&user, 1, "test");
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "For interacting with this giveaway you need to be its owner."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_add_multiple_giveaway_rewards() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+        let text = "reward #1 \n reward #2 \n reward #3";
+
+        let result = manager.add_multiple_giveaway_rewards(&owner, 1, text);
+        assert_eq!(result.is_ok(), true);
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.get_available_rewards().len(), 3);
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_index_on_add_multiple_giveaway_rewards() {
+        let manager = GiveawayManager::new();
+        let user = get_user(1, "Test");
+        let giveaway = Giveaway::new(&user).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.add_multiple_giveaway_rewards(&user, 2, "");
+        assert_eq!(result.is_err(), true);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::from(ErrorKind::Giveaway(format!(
+                "The requested giveaway was not found."
+            )))
+        );
+    }
+
+    #[test]
+    fn test_get_error_for_invalid_owner_on_add_multiple_giveaway_rewards() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let user = get_user(2, "Test");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        manager.add_giveaway(giveaway);
+
+        let result = manager.add_multiple_giveaway_rewards(&user, 1, "test");
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
