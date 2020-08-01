@@ -449,7 +449,9 @@ mod tests {
     use serenity::model::user::{CurrentUser, User as DiscordUser};
 
     use crate::commands::giveaway::manager::GiveawayManager;
-    use crate::commands::giveaway::models::{Giveaway, ObjectState, Reward};
+    use crate::commands::giveaway::models::{
+        Giveaway, ObjectState, Reward, OUTPUT_AFTER_GIVEAWAY_COMMANDS,
+    };
     use crate::error::{Error, ErrorKind};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
@@ -1195,5 +1197,59 @@ mod tests {
                 "The reward must be rolled before return."
             )))
         );
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_roll_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.roll_reward(&owner, 1, "1").ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_confirm_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.confirm_reward(&owner, 1, 1).ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
+    }
+
+    #[test]
+    fn test_actions_processing_is_growing_after_deny_command() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let reward = Reward::new("something");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
+            manager.deny_reward(&owner, 1, 1).ok();
+        }
+
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        assert_eq!(updated_giveaway.is_required_state_output(), true);
     }
 }
