@@ -18,6 +18,7 @@ Each command must be called with the `!` prefix in the beginning of each command
     - `gfinish` - Finish and delete the giveaway
     - `gitems` - Display detailed info about the rewards in the giveaway
     - `gadd` - Add a new reward to the certain giveaway
+    - `gaddm` - Add multiple rewards to the certain giveaway, parsed from the single message.
     - `gremove` - Remove the reward from the certain giveaway
     - `groll` - Roll the reward from the certain giveaway
     - `gconfirm` - Confirm that the reward was activated from the certain giveaway

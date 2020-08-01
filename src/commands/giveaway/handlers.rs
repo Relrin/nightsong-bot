@@ -21,6 +21,7 @@ use crate::storage::GiveawayStorage;
     // Giveaway rewards management
     list_rewards,
     add_reward,
+    add_multiple_rewards,
     remove_reward,
 
     // Interaction with the giveaway
@@ -273,6 +274,41 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         .expect("Expected GiveawayManager in ShareMap.");
 
     match giveaway_manager.add_giveaway_reward(&msg.author, index, data) {
+        Ok(_) => msg
+            .channel_id
+            .say(&ctx.http, "The reward has been added to the giveaway.")?,
+        Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
+    };
+
+    Ok(())
+}
+
+#[command("gaddm")]
+#[min_args(2)]
+#[help_available]
+#[usage("<giveaway-number> <description>")]
+#[description = "Adds a new reward to the certain giveaway, parsed from the single message. The separator for rewards is the new line"]
+fn add_multiple_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let index = match args.single::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "The `giveaway-number` argument for the `gaddm` command must be a positive integer.",
+            )?;
+            return Ok(());
+        }
+    };
+    let data = args.rest();
+
+    let giveaway_manager = ctx
+        .data
+        .write()
+        .get::<GiveawayStorage>()
+        .cloned()
+        .expect("Expected GiveawayManager in ShareMap.");
+
+    match giveaway_manager.add_multiple_giveaway_rewards(&msg.author, index, data) {
         Ok(_) => msg
             .channel_id
             .say(&ctx.http, "The reward has been added to the giveaway.")?,
