@@ -177,17 +177,21 @@ impl GiveawayManager {
         let selected_reward = strategy.roll(&roll_options)?;
 
         let user_id = participant.get_user_id();
+        let is_preorder = selected_reward.is_preorder();
         match stats.get_mut(&user_id) {
-            Some(mut data) => {
-                data.add_pending_reward(selected_reward.id());
-            }
+            Some(mut data) => match is_preorder {
+                true => data.add_retrieved_reward(selected_reward.id()),
+                false => data.add_pending_reward(selected_reward.id()),
+            },
             None => {
                 stats.insert(user_id, ParticipantStats::new());
                 let mut data = stats.get_mut(&user_id).unwrap();
-                data.add_pending_reward(selected_reward.id());
+                match is_preorder {
+                    true => data.add_retrieved_reward(selected_reward.id()),
+                    false => data.add_pending_reward(selected_reward.id()),
+                }
             }
         };
-        selected_reward.set_object_state(ObjectState::Pending);
 
         let response = strategy.to_message(selected_reward);
         Ok(response)
