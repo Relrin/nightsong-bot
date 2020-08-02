@@ -336,10 +336,18 @@ impl Reward {
         self.object_state.store(state);
     }
 
+    // Checks that the reward has been defined as the pre-order type.
+    pub fn is_preorder(&self) -> bool {
+        match self.object_type {
+            ObjectType::KeyPreorder => true,
+            _ => false,
+        }
+    }
+
     // Returns detailed info for the giveaway owner when necessary to update the giveaway.
     pub fn detailed_print(&self) -> String {
         match self.object_type {
-            ObjectType::Key => {
+            ObjectType::Key | ObjectType::KeyPreorder => {
                 let key = match self.object_info.clone() {
                     Some(info) => format!("{} {}", self.value, info),
                     None => format!("{}", self.value),
@@ -363,7 +371,7 @@ impl Reward {
     pub fn pretty_print(&self) -> String {
         let text = match self.object_type {
             // Different output of the key, depends on the current state
-            ObjectType::Key => {
+            ObjectType::Key | ObjectType::KeyPreorder => {
                 let key = match self.object_info.clone() {
                     Some(info) => format!("{} {}", self.value, info),
                     None => format!("{}", self.value),
@@ -422,6 +430,7 @@ impl PartialEq for Reward {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ObjectType {
     Key,
+    KeyPreorder,
     Other,
 }
 
@@ -715,6 +724,22 @@ mod tests {
         assert_eq!(reward.get_object_state(), ObjectState::Unused);
         reward.set_object_state(ObjectState::Pending);
         assert_eq!(reward.get_object_state(), ObjectState::Pending);
+    }
+
+    #[test]
+    fn test_is_pre_order_key_returns_true() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Preorder game key";
+        let reward = Reward::new(text);
+
+        assert_eq!(reward.is_preorder(), true);
+    }
+
+    #[test]
+    fn test_is_pre_order_key_returns_false() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Just a regular game key";
+        let reward = Reward::new(text);
+
+        assert_eq!(reward.is_preorder(), false);
     }
 
     #[test]
