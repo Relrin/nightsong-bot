@@ -727,6 +727,22 @@ mod tests {
     }
 
     #[test]
+    fn test_is_pre_order_key_returns_true() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Preorder game key";
+        let reward = Reward::new(text);
+
+        assert_eq!(reward.is_preorder(), true);
+    }
+
+    #[test]
+    fn test_is_pre_order_key_returns_false() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Just a regular game key";
+        let reward = Reward::new(text);
+
+        assert_eq!(reward.is_preorder(), false);
+    }
+
+    #[test]
     fn test_pretty_print_for_the_reward_in_the_unused_state() {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);

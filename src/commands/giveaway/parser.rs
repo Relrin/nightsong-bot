@@ -33,9 +33,9 @@ pub fn parse_message(text: &str) -> ParsedInput {
                 Some(object_info) => Some(object_info.as_str().trim().to_string()),
                 None => None,
             };
-            let parsed_object_type = match &parsed_object_info {
-                Some(object_info) => {
-                    let description = object_info.to_lowercase();
+            let parsed_object_type = match &parsed_description {
+                Some(text) => {
+                    let description = text.to_lowercase();
                     match description.contains("pre-order") || description.contains("preorder") {
                         true => ObjectType::KeyPreorder,
                         false => ObjectType::Key,
@@ -184,5 +184,30 @@ mod tests {
         assert_eq!(parsed_input.description, None);
         assert_eq!(parsed_input.object_info, None);
         assert_eq!(parsed_input.object_type, ObjectType::Other);
+    }
+
+    #[test]
+    fn test_parse_pre_order_key_case_1() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Preorder game key";
+        let parsed_input = parse_message(text);
+
+        assert_eq!(parsed_input.value, "AAAAA-BBBBB-CCCCC-DDDD");
+        assert_eq!(parsed_input.description, Some(format!("Preorder game key")));
+        assert_eq!(parsed_input.object_info, None);
+        assert_eq!(parsed_input.object_type, ObjectType::KeyPreorder);
+    }
+
+    #[test]
+    fn test_parse_pre_order_key_case_2() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD -> Pre-order game key";
+        let parsed_input = parse_message(text);
+
+        assert_eq!(parsed_input.value, "AAAAA-BBBBB-CCCCC-DDDD");
+        assert_eq!(
+            parsed_input.description,
+            Some(format!("Pre-order game key"))
+        );
+        assert_eq!(parsed_input.object_info, None);
+        assert_eq!(parsed_input.object_type, ObjectType::KeyPreorder);
     }
 }
