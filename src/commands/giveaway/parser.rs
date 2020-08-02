@@ -52,7 +52,7 @@ pub fn parse_message(text: &str) -> ParsedInput {
             }
         }
         false => ParsedInput {
-            value: text.to_owned(),
+            value: text.to_string(),
             description: None,
             object_info: None,
             object_type: ObjectType::Other,
@@ -70,7 +70,6 @@ mod tests {
         let text = "";
         let parsed_input = parse_message(text);
 
-        assert_eq!(parsed_input.value, text);
         assert_eq!(parsed_input.description, None);
         assert_eq!(parsed_input.object_info, None);
         assert_eq!(parsed_input.object_type, ObjectType::Other);
