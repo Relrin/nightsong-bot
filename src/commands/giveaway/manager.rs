@@ -177,24 +177,39 @@ impl GiveawayManager {
         let selected_reward = strategy.roll(&roll_options)?;
 
         let user_id = participant.get_user_id();
-        let is_preorder = selected_reward.is_preorder();
-        match stats.get_mut(&user_id) {
-            Some(mut data) => match is_preorder {
-                true => data.add_retrieved_reward(selected_reward.id()),
-                false => data.add_pending_reward(selected_reward.id()),
-            },
+        let next_state = match stats.get_mut(&user_id) {
+            Some(mut data) => self.get_next_reward_state_after_roll(&selected_reward, &mut data),
             None => {
                 stats.insert(user_id, ParticipantStats::new());
                 let mut data = stats.get_mut(&user_id).unwrap();
-                match is_preorder {
-                    true => data.add_retrieved_reward(selected_reward.id()),
-                    false => data.add_pending_reward(selected_reward.id()),
-                }
+                self.get_next_reward_state_after_roll(&selected_reward, &mut data)
             }
         };
+        selected_reward.set_object_state(next_state);
 
         let response = strategy.to_message(selected_reward);
         Ok(response)
+    }
+
+    // Returns a next state that needs to be set for the rolled reward. Also
+    // updates user's statistics for tracking what have been taken.
+    fn get_next_reward_state_after_roll(
+        &self,
+        reward: &Arc<Box<Reward>>,
+        user_data: &mut RefMut<u64, ParticipantStats>,
+    ) -> ObjectState {
+        match reward.is_preorder() {
+            // Any pre-order goes to activated instanly after the roll
+            true => {
+                user_data.add_retrieved_reward(reward.id());
+                ObjectState::Activated
+            }
+            // All other types needs activated manually
+            false => {
+                user_data.add_pending_reward(reward.id());
+                ObjectState::Pending
+            }
+        }
     }
 
     // Confirm that the reward was received and has been activated.
@@ -860,6 +875,29 @@ mod tests {
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
         let updated_rewards = updated_giveaway.get_available_rewards();
         assert_eq!(updated_rewards[0].get_object_state(), ObjectState::Pending);
+    }
+
+    #[test]
+    fn test_roll_preorder_reward_with_manual_select_strategy_by_default() {
+        let manager = GiveawayManager::new();
+        let owner = get_user(1, "Owner");
+        let giveaway = Giveaway::new(&owner).with_description("test giveaway");
+        let reward = Reward::new("AAAAA-BBBBB-CCCCC -> Pre-order something");
+        assert_eq!(reward.is_preorder(), true);
+
+        giveaway.add_reward(&reward);
+        giveaway.activate();
+        manager.add_giveaway(giveaway);
+
+        let result = manager.roll_reward(&owner, 1, "1");
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), None);
+        let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
+        let updated_rewards = updated_giveaway.get_available_rewards();
+        assert_eq!(
+            updated_rewards[0].get_object_state(),
+            ObjectState::Activated
+        );
     }
 
     #[test]
