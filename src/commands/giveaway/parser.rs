@@ -33,12 +33,22 @@ pub fn parse_message(text: &str) -> ParsedInput {
                 Some(object_info) => Some(object_info.as_str().trim().to_string()),
                 None => None,
             };
+            let parsed_object_type = match &parsed_object_info {
+                Some(object_info) => {
+                    let description = object_info.to_lowercase();
+                    match description.contains("pre-order") || description.contains("preorder") {
+                        true => ObjectType::KeyPreorder,
+                        false => ObjectType::Key,
+                    }
+                }
+                None => ObjectType::Key,
+            };
 
             ParsedInput {
                 value: parsed_value,
                 description: parsed_description,
                 object_info: parsed_object_info,
-                object_type: ObjectType::Key,
+                object_type: parsed_object_type,
             }
         }
         false => ParsedInput {
