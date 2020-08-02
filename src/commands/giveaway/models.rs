@@ -279,7 +279,7 @@ pub struct Reward {
     // A unique identifier of the reward in the giveaway(s)
     id: Uuid,
     // The actual prize.
-    value: String,
+    value: Arc<String>,
     // Reward description
     description: Option<String>,
     // Store an additional information about the reward (e.g. the online store,
@@ -298,7 +298,7 @@ impl Reward {
 
         Reward {
             id: Uuid::new_v4(),
-            value: parse_result.value.clone(),
+            value: Arc::new(parse_result.value.clone()),
             description: parse_result.description.clone(),
             object_info: parse_result.object_info.clone(),
             object_type: parse_result.object_type,
@@ -312,7 +312,7 @@ impl Reward {
     }
 
     // Returns the reward's store key or a plain text
-    pub fn get_value(&self) -> String {
+    pub fn get_value(&self) -> Arc<String> {
         self.value.clone()
     }
 
@@ -372,9 +372,14 @@ impl Reward {
         let text = match self.object_type {
             // Different output of the key, depends on the current state
             ObjectType::Key | ObjectType::KeyPreorder => {
+                let masked_key = match self.object_state.load() == ObjectState::Unused {
+                    true => self.generate_key_with_mask(),
+                    false => self.value.clone(),
+                };
+
                 let key = match self.object_info.clone() {
-                    Some(info) => format!("{} {}", self.value, info),
-                    None => format!("{}", self.value),
+                    Some(info) => format!("{} {}", masked_key, info),
+                    None => format!("{}", masked_key),
                 };
 
                 match self.object_state.load() {
@@ -393,7 +398,7 @@ impl Reward {
             ObjectType::Other => format!(
                 "{} {}{}",
                 self.object_state.load().as_str(),
-                self.value,
+                self.value.clone(),
                 self.description.clone().unwrap_or(String::from("")),
             ),
         };
@@ -403,6 +408,27 @@ impl Reward {
             true => format!("~~{}~~", text),
             false => text,
         }
+    }
+
+    // Replaces the last part of the key into `x` symbols to stop abusing
+    // exposed keys in giveaways.
+    fn generate_key_with_mask(&self) -> Arc<String> {
+        let key_fragments = self
+            .value
+            .split('-')
+            .map(|key_fragment| key_fragment.to_string())
+            .collect::<Vec<String>>();
+        let parts_count = key_fragments.len();
+        let key_with_mask = key_fragments
+            .into_iter()
+            .enumerate()
+            .map(|(index, key_fragment)| match index == parts_count - 1 {
+                true => key_fragment.chars().map(|_| 'x').collect::<String>(),
+                false => key_fragment,
+            })
+            .collect::<Vec<String>>()
+            .join("-");
+        Arc::new(key_with_mask)
     }
 }
 
