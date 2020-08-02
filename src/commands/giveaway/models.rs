@@ -773,7 +773,7 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.pretty_print(), "[ ] AAAAA-BBBBB-CCCCC-DDDD [Store]");
+        assert_eq!(reward.pretty_print(), "[ ] AAAAA-BBBBB-CCCCC-xxxx [Store]");
     }
 
     #[test]
