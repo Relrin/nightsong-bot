@@ -299,6 +299,7 @@ impl GiveawayManager {
         let pending_rewards = self.extract_pending_rewards(&stats);
         let retrieved_rewards = self.extract_retrieved_rewards(&stats);
 
+        let reward_formatter = giveaway.reward_formatter();
         let rewards_output = giveaway
             .raw_rewards()
             .clone()
@@ -306,18 +307,19 @@ impl GiveawayManager {
             .unwrap()
             .iter()
             .enumerate()
-            .map(|(index, obj)| {
-                let reward_id = obj.id();
+            .map(|(index, reward)| {
+                let reward_id = reward.id();
                 let is_pending = pending_rewards.contains_key(&reward_id);
                 let is_retrieved = retrieved_rewards.contains_key(&reward_id);
 
+                let reward_output = reward_formatter.pretty_print(reward);
                 match (is_pending, is_retrieved) {
                     (true, false) => {
                         let user_id = pending_rewards.get(&reward_id).unwrap();
                         format!(
                             "{}. {}  [taken by <@{}>]",
                             index + 1,
-                            obj.pretty_print(),
+                            reward_output,
                             user_id
                         )
                     }
@@ -326,11 +328,11 @@ impl GiveawayManager {
                         format!(
                             "{}. {}  [activated by <@{}>]",
                             index + 1,
-                            obj.pretty_print(),
+                            reward_output,
                             user_id
                         )
                     }
-                    _ => format!("{}. {}", index + 1, obj.pretty_print()),
+                    _ => format!("{}. {}", index + 1, reward_output),
                 }
             })
             .collect::<Vec<String>>()
@@ -348,7 +350,7 @@ impl GiveawayManager {
     ) -> Result<()> {
         let pending_rewards = data.pending_rewards();
 
-        match reward.get_object_state() {
+        match reward.object_state() {
             ObjectState::Activated => {
                 let message = format!("The reward has been activated already.");
                 return Err(Error::from(ErrorKind::Giveaway(message)));
@@ -379,7 +381,7 @@ impl GiveawayManager {
     ) -> Result<()> {
         let pending_rewards = data.pending_rewards();
 
-        match reward.get_object_state() {
+        match reward.object_state() {
             ObjectState::Activated => {
                 let message = format!("The reward has been activated already.");
                 return Err(Error::from(ErrorKind::Giveaway(message)));
@@ -874,7 +876,7 @@ mod tests {
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
         let updated_rewards = updated_giveaway.get_available_rewards();
-        assert_eq!(updated_rewards[0].get_object_state(), ObjectState::Pending);
+        assert_eq!(updated_rewards[0].object_state(), ObjectState::Pending);
     }
 
     #[test]
@@ -894,10 +896,7 @@ mod tests {
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
         let updated_rewards = updated_giveaway.get_available_rewards();
-        assert_eq!(
-            updated_rewards[0].get_object_state(),
-            ObjectState::Activated
-        );
+        assert_eq!(updated_rewards[0].object_state(), ObjectState::Activated);
     }
 
     #[test]

@@ -9,6 +9,7 @@ use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
+use crate::commands::giveaway::formatters::{DefaultRewardFormatter, RewardFormatter};
 use crate::commands::giveaway::parser::parse_message;
 use crate::commands::giveaway::strategies::{GiveawayStrategy, ManualSelectStrategy};
 use crate::error::{Error, ErrorKind, Result};
@@ -109,6 +110,9 @@ pub struct Giveaway {
     // An internal counter for periodic output the state of
     // the giveaway.
     actions_processed: Arc<AtomicU64>,
+    // The formatter instance used for generating output for each
+    // added or updated reward.
+    reward_formatter: Arc<Box<dyn RewardFormatter + Send + Sync>>,
 }
 
 impl Giveaway {
@@ -123,6 +127,7 @@ impl Giveaway {
             message_id: Arc::new(AtomicCell::new(None)),
             actions_required_to_output: OUTPUT_AFTER_GIVEAWAY_COMMANDS,
             actions_processed: Arc::new(AtomicU64::new(0)),
+            reward_formatter: Arc::new(Box::new(DefaultRewardFormatter::new())),
         }
     }
 
@@ -195,6 +200,11 @@ impl Giveaway {
     pub fn is_required_state_output(&self) -> bool {
         let current_value = self.actions_processed.load(Ordering::SeqCst);
         current_value == self.actions_required_to_output
+    }
+
+    // Return a reward formatter.
+    pub fn reward_formatter(&self) -> Arc<Box<dyn RewardFormatter + Send + Sync>> {
+        self.reward_formatter.clone()
     }
 
     // Returns a list of all available rewards.
@@ -312,22 +322,27 @@ impl Reward {
     }
 
     // Returns the reward's store key or a plain text
-    pub fn get_value(&self) -> Arc<String> {
+    pub fn value(&self) -> Arc<String> {
         self.value.clone()
     }
 
     // Returns the description of the item (if has any)
-    pub fn get_description(&self) -> Option<String> {
+    pub fn description(&self) -> Option<String> {
         self.description.clone()
     }
 
+    // Returns an additional object information (e.g. for what store the key is)
+    pub fn object_info(&self) -> Option<String> {
+        self.object_info.clone()
+    }
+
     // Returns the object type. It can be a game / store key or just a plain text.
-    pub fn get_object_type(&self) -> ObjectType {
+    pub fn object_type(&self) -> ObjectType {
         self.object_type
     }
 
     // Returns the current object state.
-    pub fn get_object_state(&self) -> ObjectState {
+    pub fn object_state(&self) -> ObjectState {
         self.object_state.load()
     }
 
@@ -342,93 +357,6 @@ impl Reward {
             ObjectType::KeyPreorder => true,
             _ => false,
         }
-    }
-
-    // Returns detailed info for the giveaway owner when necessary to update the giveaway.
-    pub fn detailed_print(&self) -> String {
-        match self.object_type {
-            ObjectType::Key | ObjectType::KeyPreorder => {
-                let key = match self.object_info.clone() {
-                    Some(info) => format!("{} {}", self.value, info),
-                    None => format!("{}", self.value),
-                };
-
-                format!(
-                    "{} -> {}",
-                    key,
-                    self.description.clone().unwrap_or(String::from("")),
-                )
-            }
-            ObjectType::Other => format!(
-                "{}{}",
-                self.value,
-                self.description.clone().unwrap_or(String::from("")),
-            ),
-        }
-    }
-
-    // Stylized print for the users in the channel when the giveaways has been started.
-    pub fn pretty_print(&self) -> String {
-        let text = match self.object_type {
-            // Different output of the key, depends on the current state
-            ObjectType::Key | ObjectType::KeyPreorder => {
-                let masked_key = match self.object_state.load() == ObjectState::Unused {
-                    true => self.generate_key_with_mask(),
-                    false => self.value.clone(),
-                };
-
-                let key = match self.object_info.clone() {
-                    Some(info) => format!("{} {}", masked_key, info),
-                    None => format!("{}", masked_key),
-                };
-
-                match self.object_state.load() {
-                    // When is Activated show what was hidden behind the key
-                    ObjectState::Activated => format!(
-                        "{} {} -> {}",
-                        self.object_state.load().as_str(),
-                        key,
-                        self.description.clone().unwrap_or(String::from("")),
-                    ),
-                    // For Unused/Pending states print minimal amount of info
-                    _ => format!("{} {}", self.object_state.load().as_str(), key),
-                }
-            }
-            // Print any non-keys as is
-            ObjectType::Other => format!(
-                "{} {}{}",
-                self.object_state.load().as_str(),
-                self.value.clone(),
-                self.description.clone().unwrap_or(String::from("")),
-            ),
-        };
-
-        // If the object was taken by someone, then cross out the text
-        match self.object_state.load() == ObjectState::Activated {
-            true => format!("~~{}~~", text),
-            false => text,
-        }
-    }
-
-    // Replaces the last part of the key into `x` symbols to stop abusing
-    // exposed keys in giveaways.
-    fn generate_key_with_mask(&self) -> Arc<String> {
-        let key_fragments = self
-            .value
-            .split('-')
-            .map(|key_fragment| key_fragment.to_string())
-            .collect::<Vec<String>>();
-        let parts_count = key_fragments.len();
-        let key_with_mask = key_fragments
-            .into_iter()
-            .enumerate()
-            .map(|(index, key_fragment)| match index == parts_count - 1 {
-                true => key_fragment.chars().map(|_| 'x').collect::<String>(),
-                false => key_fragment,
-            })
-            .collect::<Vec<String>>()
-            .join("-");
-        Arc::new(key_with_mask)
     }
 }
 
@@ -484,6 +412,7 @@ impl ObjectState {
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
     use serenity::model::id::UserId;
     use serenity::model::user::{CurrentUser, User as DiscordUser};
@@ -505,9 +434,16 @@ mod tests {
     fn test_get_giveaway_rewards() {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
+        let formatter = giveaway.reward_formatter();
         let reward_1 = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
         let reward_2 = Reward::new("BBBBB-CCCCC-DDDDD-FFFF [Store] -> Some game");
         let reward_3 = Reward::new("CCCCC-DDDDD-FFFFF-EEEE [Store] -> Some game");
+        let concurrecy_reward_1 = Arc::new(Box::new(reward_1.clone()));
+        let concurrecy_reward_2 = Arc::new(Box::new(reward_2.clone()));
+        let concurrecy_reward_3 = Arc::new(Box::new(reward_3.clone()));
+        let expected_item_1 = formatter.pretty_print(&concurrecy_reward_1);
+        let expected_item_2 = formatter.pretty_print(&concurrecy_reward_2);
+        let expected_item_3 = formatter.pretty_print(&concurrecy_reward_3);
         giveaway.add_reward(&reward_1);
         giveaway.add_reward(&reward_2);
         giveaway.add_reward(&reward_3);
@@ -515,11 +451,11 @@ mod tests {
         let rewards = giveaway
             .get_available_rewards()
             .iter()
-            .map(|obj| obj.pretty_print())
+            .map(|obj| formatter.pretty_print(obj))
             .collect::<Vec<String>>();
-        assert_eq!(rewards.contains(&reward_1.pretty_print()), true);
-        assert_eq!(rewards.contains(&reward_2.pretty_print()), true);
-        assert_eq!(rewards.contains(&reward_3.pretty_print()), true);
+        assert_eq!(rewards.contains(&expected_item_1), true);
+        assert_eq!(rewards.contains(&expected_item_2), true);
+        assert_eq!(rewards.contains(&expected_item_3), true);
     }
 
     #[test]
@@ -536,6 +472,9 @@ mod tests {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
         let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        let formatter = giveaway.reward_formatter();
+        let concurrecy_reward = Arc::new(Box::new(reward.clone()));
+        let expected_item = formatter.pretty_print(&concurrecy_reward);
 
         let old_giveaway_rewards = giveaway.get_available_rewards();
         assert_eq!(old_giveaway_rewards.is_empty(), true);
@@ -544,12 +483,9 @@ mod tests {
         let updated_giveaway_rewards = giveaway
             .get_available_rewards()
             .iter()
-            .map(|obj| obj.pretty_print())
+            .map(|obj| formatter.pretty_print(obj))
             .collect::<Vec<String>>();
-        assert_eq!(
-            updated_giveaway_rewards.contains(&reward.pretty_print()),
-            true
-        );
+        assert_eq!(updated_giveaway_rewards.contains(&expected_item), true);
     }
 
     #[test]
@@ -557,6 +493,9 @@ mod tests {
         let user = get_user(1, "Test");
         let giveaway = Giveaway::new(&user);
         let reward = Reward::new("AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game");
+        let formatter = giveaway.reward_formatter();
+        let concurrecy_reward = Arc::new(Box::new(reward.clone()));
+        let expected_item = formatter.pretty_print(&concurrecy_reward);
 
         let old_giveaway_rewards = giveaway.get_available_rewards();
         assert_eq!(old_giveaway_rewards.is_empty(), true);
@@ -565,23 +504,17 @@ mod tests {
         let updated_giveaway_rewards = giveaway
             .get_available_rewards()
             .iter()
-            .map(|obj| obj.pretty_print())
+            .map(|obj| formatter.pretty_print(obj))
             .collect::<Vec<String>>();
-        assert_eq!(
-            updated_giveaway_rewards.contains(&reward.pretty_print()),
-            true
-        );
+        assert_eq!(updated_giveaway_rewards.contains(&expected_item), true);
 
         giveaway.remove_reward_by_index(1).unwrap();
         let latest_giveaway_rewards = giveaway
             .get_available_rewards()
             .iter()
-            .map(|obj| obj.pretty_print())
+            .map(|obj| formatter.pretty_print(obj))
             .collect::<Vec<String>>();
-        assert_eq!(
-            latest_giveaway_rewards.contains(&reward.pretty_print()),
-            false
-        );
+        assert_eq!(latest_giveaway_rewards.contains(&expected_item), false);
         assert_eq!(latest_giveaway_rewards.is_empty(), true);
     }
 
@@ -689,7 +622,7 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_value().as_str(), "AAAAA-BBBBB-CCCCC-DDDD")
+        assert_eq!(reward.value().as_str(), "AAAAA-BBBBB-CCCCC-DDDD")
     }
 
     #[test]
@@ -697,7 +630,7 @@ mod tests {
         let text = "just a text";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_value().as_str(), text);
+        assert_eq!(reward.value().as_str(), text);
     }
 
     #[test]
@@ -705,7 +638,7 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_type(), ObjectType::Key)
+        assert_eq!(reward.object_type(), ObjectType::Key)
     }
 
     #[test]
@@ -713,7 +646,7 @@ mod tests {
         let text = "just a text";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_type(), ObjectType::Other);
+        assert_eq!(reward.object_type(), ObjectType::Other);
     }
 
     #[test]
@@ -721,7 +654,7 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_state(), ObjectState::Unused)
+        assert_eq!(reward.object_state(), ObjectState::Unused)
     }
 
     #[test]
@@ -729,7 +662,7 @@ mod tests {
         let text = "just a text";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_state(), ObjectState::Unused);
+        assert_eq!(reward.object_state(), ObjectState::Unused);
     }
 
     #[test]
@@ -737,9 +670,9 @@ mod tests {
         let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_state(), ObjectState::Unused);
+        assert_eq!(reward.object_state(), ObjectState::Unused);
         reward.set_object_state(ObjectState::Pending);
-        assert_eq!(reward.get_object_state(), ObjectState::Pending);
+        assert_eq!(reward.object_state(), ObjectState::Pending);
     }
 
     #[test]
@@ -747,9 +680,9 @@ mod tests {
         let text = "just a text";
         let reward = Reward::new(text);
 
-        assert_eq!(reward.get_object_state(), ObjectState::Unused);
+        assert_eq!(reward.object_state(), ObjectState::Unused);
         reward.set_object_state(ObjectState::Pending);
-        assert_eq!(reward.get_object_state(), ObjectState::Pending);
+        assert_eq!(reward.object_state(), ObjectState::Pending);
     }
 
     #[test]
@@ -766,51 +699,5 @@ mod tests {
         let reward = Reward::new(text);
 
         assert_eq!(reward.is_preorder(), false);
-    }
-
-    #[test]
-    fn test_pretty_print_for_the_reward_in_the_unused_state() {
-        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let reward = Reward::new(text);
-
-        assert_eq!(reward.pretty_print(), "[ ] AAAAA-BBBBB-CCCCC-xxxx [Store]");
-    }
-
-    #[test]
-    fn test_pretty_print_for_the_reward_in_the_pending_state() {
-        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let reward = Reward::new(text);
-
-        reward.set_object_state(ObjectState::Pending);
-        assert_eq!(reward.pretty_print(), "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]");
-    }
-
-    #[test]
-    fn test_pretty_print_for_the_reward_in_the_activated_state() {
-        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
-        let reward = Reward::new(text);
-
-        reward.set_object_state(ObjectState::Activated);
-        assert_eq!(
-            reward.pretty_print(),
-            "~~[+] AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
-        );
-    }
-
-    #[test]
-    fn test_pretty_print_for_an_unknown_object_in_the_unused_state() {
-        let text = "just a text";
-        let reward = Reward::new(text);
-
-        assert_eq!(reward.pretty_print(), "[ ] just a text");
-    }
-
-    #[test]
-    fn test_pretty_print_for_an_unknown_object_in_the_activated_state() {
-        let text = "just a text";
-        let reward = Reward::new(text);
-
-        reward.set_object_state(ObjectState::Activated);
-        assert_eq!(reward.pretty_print(), "~~[+] just a text~~");
     }
 }

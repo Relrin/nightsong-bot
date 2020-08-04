@@ -224,6 +224,8 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 
     match giveaway_manager.get_giveaway_rewards(&msg.author, index) {
         Ok(items) => {
+            let giveaway = giveaway_manager.get_giveaway_by_index(index).unwrap();
+            let reward_formatter = giveaway.reward_formatter();
             let content = match items.len() {
                 0 => "There are no added rewards.".to_string(),
                 _ => format!(
@@ -231,7 +233,11 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
                     items
                         .iter()
                         .enumerate()
-                        .map(|(index, obj)| format!("{}. {}", index + 1, obj.detailed_print()))
+                        .map(|(index, obj)| format!(
+                            "{}. {}",
+                            index + 1,
+                            reward_formatter.debug_print(obj)
+                        ))
                         .collect::<Vec<String>>()
                         .join("\n")
                 ),
