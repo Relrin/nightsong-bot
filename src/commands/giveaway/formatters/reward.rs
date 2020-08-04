@@ -101,3 +101,67 @@ impl RewardFormatter for DefaultRewardFormatter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::commands::giveaway::formatters::{DefaultRewardFormatter, RewardFormatter};
+    use crate::commands::giveaway::models::{ObjectState, Reward};
+
+    #[test]
+    fn test_default_pretty_print_for_the_reward_in_the_unused_state() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
+        let reward = Arc::new(Box::new(Reward::new(text)));
+        let formatter = DefaultRewardFormatter::new();
+
+        let output = formatter.pretty_print(&reward);
+        assert_eq!(output, "[ ] AAAAA-BBBBB-CCCCC-xxxx [Store]");
+    }
+
+    #[test]
+    fn test_default_pretty_print_for_the_reward_in_the_pending_state() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
+        let reward = Arc::new(Box::new(Reward::new(text)));
+        let formatter = DefaultRewardFormatter::new();
+
+        reward.set_object_state(ObjectState::Pending);
+        let output = formatter.pretty_print(&reward);
+        assert_eq!(output, "[?] AAAAA-BBBBB-CCCCC-DDDD [Store]");
+    }
+
+    #[test]
+    fn test_default_pretty_print_for_the_reward_in_the_activated_state() {
+        let text = "AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game";
+        let reward = Arc::new(Box::new(Reward::new(text)));
+        let formatter = DefaultRewardFormatter::new();
+
+        reward.set_object_state(ObjectState::Activated);
+        let output = formatter.pretty_print(&reward);
+        assert_eq!(
+            output,
+            "~~[+] AAAAA-BBBBB-CCCCC-DDDD [Store] -> Some game~~"
+        );
+    }
+
+    #[test]
+    fn test_default_pretty_print_for_an_unknown_object_in_the_unused_state() {
+        let text = "just a text";
+        let reward = Arc::new(Box::new(Reward::new(text)));
+        let formatter = DefaultRewardFormatter::new();
+
+        let output = formatter.pretty_print(&reward);
+        assert_eq!(output, "[ ] just a text");
+    }
+
+    #[test]
+    fn test_default_pretty_print_for_an_unknown_object_in_the_activated_state() {
+        let text = "just a text";
+        let reward = Arc::new(Box::new(Reward::new(text)));
+        let formatter = DefaultRewardFormatter::new();
+
+        reward.set_object_state(ObjectState::Activated);
+        let output = formatter.pretty_print(&reward);
+        assert_eq!(output, "~~[+] just a text~~");
+    }
+}

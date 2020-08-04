@@ -876,7 +876,7 @@ mod tests {
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
         let updated_rewards = updated_giveaway.get_available_rewards();
-        assert_eq!(updated_rewards[0].get_object_state(), ObjectState::Pending);
+        assert_eq!(updated_rewards[0].object_state(), ObjectState::Pending);
     }
 
     #[test]
@@ -896,10 +896,7 @@ mod tests {
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
         let updated_rewards = updated_giveaway.get_available_rewards();
-        assert_eq!(
-            updated_rewards[0].get_object_state(),
-            ObjectState::Activated
-        );
+        assert_eq!(updated_rewards[0].object_state(), ObjectState::Activated);
     }
 
     #[test]
