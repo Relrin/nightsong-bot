@@ -42,7 +42,7 @@ impl ManualSelectStrategy {
             .iter()
             .filter(|obj| {
                 let reward_id = obj.id();
-                let is_pending = obj.get_object_state() == ObjectState::Pending;
+                let is_pending = obj.object_state() == ObjectState::Pending;
                 is_pending && pending_rewards.contains(&reward_id)
             })
             .map(|reward| reward.clone())
@@ -67,7 +67,7 @@ impl ManualSelectStrategy {
             .lock()
             .unwrap()
             .iter()
-            .filter(|obj| obj.get_object_state() == ObjectState::Unused)
+            .filter(|obj| obj.object_state() == ObjectState::Unused)
             .map(|reward| reward.clone())
             .collect::<Vec<ConcurrencyReward>>()
             .is_empty();
@@ -96,7 +96,7 @@ impl ManualSelectStrategy {
             true => {
                 let reward = guard_rewards[index - 1].clone();
 
-                if reward.get_object_state() != ObjectState::Unused {
+                if reward.object_state() != ObjectState::Unused {
                     let message = format!("This reward has already been taken by someone.");
                     return Err(Error::from(ErrorKind::Giveaway(message)));
                 }

@@ -9,6 +9,7 @@ use serenity::model::id::MessageId;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
+use crate::commands::giveaway::formatters::{DefaultRewardFormatter, RewardFormatter};
 use crate::commands::giveaway::parser::parse_message;
 use crate::commands::giveaway::strategies::{GiveawayStrategy, ManualSelectStrategy};
 use crate::error::{Error, ErrorKind, Result};
@@ -109,6 +110,9 @@ pub struct Giveaway {
     // An internal counter for periodic output the state of
     // the giveaway.
     actions_processed: Arc<AtomicU64>,
+    // The formatter instance used for generating output for each
+    // added or updated reward.
+    reward_formatter: Arc<Box<dyn RewardFormatter + Send + Sync>>,
 }
 
 impl Giveaway {
@@ -123,6 +127,7 @@ impl Giveaway {
             message_id: Arc::new(AtomicCell::new(None)),
             actions_required_to_output: OUTPUT_AFTER_GIVEAWAY_COMMANDS,
             actions_processed: Arc::new(AtomicU64::new(0)),
+            reward_formatter: Arc::new(Box::new(DefaultRewardFormatter::new())),
         }
     }
 
@@ -195,6 +200,11 @@ impl Giveaway {
     pub fn is_required_state_output(&self) -> bool {
         let current_value = self.actions_processed.load(Ordering::SeqCst);
         current_value == self.actions_required_to_output
+    }
+
+    // Return a reward formatter.
+    pub fn reward_formatter(&self) -> Arc<Box<dyn RewardFormatter + Send + Sync>> {
+        self.reward_formatter.clone()
     }
 
     // Returns a list of all available rewards.
@@ -312,22 +322,27 @@ impl Reward {
     }
 
     // Returns the reward's store key or a plain text
-    pub fn get_value(&self) -> Arc<String> {
+    pub fn value(&self) -> Arc<String> {
         self.value.clone()
     }
 
     // Returns the description of the item (if has any)
-    pub fn get_description(&self) -> Option<String> {
+    pub fn description(&self) -> Option<String> {
         self.description.clone()
     }
 
+    // Returns an additional object information (e.g. for what store the key is)
+    pub fn object_info(&self) -> Option<String> {
+        self.object_info.clone()
+    }
+
     // Returns the object type. It can be a game / store key or just a plain text.
-    pub fn get_object_type(&self) -> ObjectType {
+    pub fn object_type(&self) -> ObjectType {
         self.object_type
     }
 
     // Returns the current object state.
-    pub fn get_object_state(&self) -> ObjectState {
+    pub fn object_state(&self) -> ObjectState {
         self.object_state.load()
     }
 
@@ -342,93 +357,6 @@ impl Reward {
             ObjectType::KeyPreorder => true,
             _ => false,
         }
-    }
-
-    // Returns detailed info for the giveaway owner when necessary to update the giveaway.
-    pub fn detailed_print(&self) -> String {
-        match self.object_type {
-            ObjectType::Key | ObjectType::KeyPreorder => {
-                let key = match self.object_info.clone() {
-                    Some(info) => format!("{} {}", self.value, info),
-                    None => format!("{}", self.value),
-                };
-
-                format!(
-                    "{} -> {}",
-                    key,
-                    self.description.clone().unwrap_or(String::from("")),
-                )
-            }
-            ObjectType::Other => format!(
-                "{}{}",
-                self.value,
-                self.description.clone().unwrap_or(String::from("")),
-            ),
-        }
-    }
-
-    // Stylized print for the users in the channel when the giveaways has been started.
-    pub fn pretty_print(&self) -> String {
-        let text = match self.object_type {
-            // Different output of the key, depends on the current state
-            ObjectType::Key | ObjectType::KeyPreorder => {
-                let masked_key = match self.object_state.load() == ObjectState::Unused {
-                    true => self.generate_key_with_mask(),
-                    false => self.value.clone(),
-                };
-
-                let key = match self.object_info.clone() {
-                    Some(info) => format!("{} {}", masked_key, info),
-                    None => format!("{}", masked_key),
-                };
-
-                match self.object_state.load() {
-                    // When is Activated show what was hidden behind the key
-                    ObjectState::Activated => format!(
-                        "{} {} -> {}",
-                        self.object_state.load().as_str(),
-                        key,
-                        self.description.clone().unwrap_or(String::from("")),
-                    ),
-                    // For Unused/Pending states print minimal amount of info
-                    _ => format!("{} {}", self.object_state.load().as_str(), key),
-                }
-            }
-            // Print any non-keys as is
-            ObjectType::Other => format!(
-                "{} {}{}",
-                self.object_state.load().as_str(),
-                self.value.clone(),
-                self.description.clone().unwrap_or(String::from("")),
-            ),
-        };
-
-        // If the object was taken by someone, then cross out the text
-        match self.object_state.load() == ObjectState::Activated {
-            true => format!("~~{}~~", text),
-            false => text,
-        }
-    }
-
-    // Replaces the last part of the key into `x` symbols to stop abusing
-    // exposed keys in giveaways.
-    fn generate_key_with_mask(&self) -> Arc<String> {
-        let key_fragments = self
-            .value
-            .split('-')
-            .map(|key_fragment| key_fragment.to_string())
-            .collect::<Vec<String>>();
-        let parts_count = key_fragments.len();
-        let key_with_mask = key_fragments
-            .into_iter()
-            .enumerate()
-            .map(|(index, key_fragment)| match index == parts_count - 1 {
-                true => key_fragment.chars().map(|_| 'x').collect::<String>(),
-                false => key_fragment,
-            })
-            .collect::<Vec<String>>()
-            .join("-");
-        Arc::new(key_with_mask)
     }
 }
 
