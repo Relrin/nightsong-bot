@@ -7,7 +7,7 @@ use serenity::framework::standard::{
 use serenity::model::prelude::{Message, UserId};
 
 #[help]
-pub fn get_commands_list(
+pub async fn get_commands_list(
     context: &mut Context,
     msg: &Message,
     args: Args,

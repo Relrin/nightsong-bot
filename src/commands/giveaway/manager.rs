@@ -71,7 +71,7 @@ impl GiveawayManager {
 
         match index > 0 && index < guard_giveaways.len() + 1 {
             true => {
-                if user.id.0 != guard_giveaways[index - 1].owner().get_user_id() {
+                if user.id.get() != guard_giveaways[index - 1].owner().get_user_id() {
                     let message = format!("For deleting this giveaway you need to be its owner.");
                     return Err(Error::from(ErrorKind::Giveaway(message)));
                 }
@@ -445,7 +445,7 @@ impl GiveawayManager {
     }
 
     fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {
-        if user.id.0 != giveaway.owner().get_user_id() {
+        if user.id.get() != giveaway.owner().get_user_id() {
             let message = format!("For interacting with this giveaway you need to be its owner.");
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }

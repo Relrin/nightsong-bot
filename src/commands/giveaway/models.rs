@@ -39,7 +39,7 @@ impl Participant {
 impl From<DiscordUser> for Participant {
     fn from(discord_user: DiscordUser) -> Self {
         Participant {
-            user_id: discord_user.id.0,
+            user_id: discord_user.id.get(),
             username: discord_user.name,
         }
     }

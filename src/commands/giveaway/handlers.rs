@@ -1,8 +1,8 @@
+use serenity::client::Context;
 use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::Args;
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
-use serenity::prelude::Context;
 use serenity::utils::MessageBuilder;
 
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
@@ -35,7 +35,7 @@ struct Giveaway;
 
 #[command("glist")]
 #[description = "Get a list of available giveaways"]
-fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn list_giveaways(ctx: &Context, msg: &Message) -> CommandResult {
     let giveaway_manager = ctx
         .data
         .read()
@@ -67,7 +67,7 @@ fn list_giveaways(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[usage("<description>")]
 #[example("My new Steam / EGS games giveaway.")]
 #[description = "Create a new giveaway"]
-fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn create_giveaway(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let description = args.message();
     let giveaway = GiveawayInstance::new(&msg.author).with_description(description);
 
@@ -92,7 +92,7 @@ fn create_giveaway(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[usage("<giveaway-number>")]
 #[example("1")]
 #[description = "Start the certain giveaway"]
-fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn start_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -131,7 +131,7 @@ fn start_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 #[usage("<giveaway-number>")]
 #[example("1")]
 #[description = "Deactivates the giveaway by the given number"]
-fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn deactivate_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -167,7 +167,7 @@ fn deactivate_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
 #[usage("<giveaway-number>")]
 #[example("1")]
 #[description = "Finishes and deletes the giveaway by the given number"]
-fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn finish_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -203,7 +203,7 @@ fn finish_giveaway(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
 #[usage("<giveaway-number>")]
 #[example("1")]
 #[description = "Display detailed info about the rewards in the giveaway for the owner."]
-fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn list_rewards(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -218,6 +218,7 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -259,7 +260,7 @@ fn list_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
 #[example("1 Just a plain text with some description about the reward")]
 #[example("1 AAAAA-BBBBB-CCCCC-DDDD [Store name] -> Game name")]
 #[description = "Adds a new reward to the certain giveaway"]
-fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn add_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -275,6 +276,7 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -294,7 +296,7 @@ fn add_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
 #[help_available]
 #[usage("<giveaway-number> <description>")]
 #[description = "Adds a new reward to the certain giveaway, parsed from the single message. The separator for rewards is the new line"]
-fn add_multiple_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn add_multiple_rewards(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -310,6 +312,7 @@ fn add_multiple_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> Com
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -331,7 +334,7 @@ fn add_multiple_rewards(ctx: &mut Context, msg: &Message, mut args: Args) -> Com
 #[usage("<giveaway-number> <reward-to-remove>")]
 #[example("1 1")]
 #[description = "Removes the reward from the certain giveaway"]
-fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn remove_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -356,6 +359,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -376,7 +380,7 @@ fn remove_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
 #[usage("<giveaway-number> <reward-number>")]
 #[example("1 1")]
 #[description = "Roll the reward from the certain giveaway"]
-fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn roll_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -391,6 +395,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -419,7 +424,7 @@ fn roll_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
 #[usage("<giveaway-number> <reward-number>")]
 #[example("1 1")]
 #[description = "Confirm that the reward was activated from the certain giveaway"]
-fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn confirm_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -444,6 +449,7 @@ fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");
@@ -467,7 +473,7 @@ fn confirm_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRe
 #[usage("<giveaway-number> <reward-number>")]
 #[example("1 1")]
 #[description = "Return the reward back that can't be activated"]
-fn deny_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn deny_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let index = match args.single::<usize>() {
         Ok(value) => value,
         Err(_) => {
@@ -492,6 +498,7 @@ fn deny_reward(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let giveaway_manager = ctx
         .data
         .write()
+        .await
         .get::<GiveawayStorage>()
         .cloned()
         .expect("Expected GiveawayManager in ShareMap.");

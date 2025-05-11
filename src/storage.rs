@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use serenity::model::id::UserId;
+use serenity::model::id::ApplicationId;
 use serenity::prelude::TypeMapKey;
 
 use crate::commands::giveaway::manager::GiveawayManager;
 
+// TODO: Remove this???
 pub struct GiveawayStorage;
 
 impl TypeMapKey for GiveawayStorage {
@@ -14,5 +15,5 @@ impl TypeMapKey for GiveawayStorage {
 pub struct BotIdStorage;
 
 impl TypeMapKey for BotIdStorage {
-    type Value = Arc<UserId>;
+    type Value = Arc<ApplicationId>;
 }

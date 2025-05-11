@@ -1,8 +1,9 @@
 use std::fmt::{self, Display};
 use std::result;
+use std::sync::TryLockError;
 
 use failure::{Backtrace, Context, Fail};
-use std::sync::TryLockError;
+use serenity::prelude::SerenityError;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -46,11 +47,21 @@ impl Display for Error {
 #[derive(Clone, Eq, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "{}", _0)]
+    SerenityError(String),
+    #[fail(display = "{}", _0)]
     RwLock(String),
     #[fail(display = "{}", _0)]
     Giveaway(String),
     #[fail(display = "{}", description)]
     Other { description: String },
+}
+
+impl From<SerenityError> for Error {
+    fn from(err: SerenityError) -> Error {
+        let description = err.to_string();
+        let kind = ErrorKind::SerenityError(description);
+        Error::from(Context::new(kind))
+    }
 }
 
 impl From<ErrorKind> for Error {
@@ -75,3 +86,4 @@ impl<T> From<TryLockError<T>> for Error {
         Error::from(Context::new(kind))
     }
 }
+
