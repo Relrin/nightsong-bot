@@ -8,11 +8,10 @@ readme = "README.md"
 
 [dependencies]
 crossbeam = "0.8.2"
-crossbeam-utils = "0.8.16"
+boxcar = "0.2.11"
 dashmap = "5.5.3"
 failure = "0.1.8"
 lazy_static = "1.4.0"
-rand = "0.8.5"
 regex = "1.9.5"
 readonly = "0.2.11"
 serenity = { version = "0.12.4", default-features = true}
