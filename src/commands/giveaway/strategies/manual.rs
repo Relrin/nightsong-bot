@@ -140,7 +140,7 @@ mod tests {
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
-        current_user.id = UserId(user_id);
+        current_user.id = UserId::new(user_id);
         current_user.name = username.to_owned();
         DiscordUser::from(current_user)
     }
