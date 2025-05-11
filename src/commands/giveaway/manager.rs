@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
+use lazy_static::lazy_static;
 use serenity::model::user::User as DiscordUser;
 use uuid::Uuid;
 
@@ -11,6 +12,10 @@ use crate::commands::giveaway::models::{
 };
 use crate::commands::giveaway::strategies::RollOptions;
 use crate::error::{Error, ErrorKind, Result};
+
+lazy_static! {
+    pub static ref GIVEAWAY_MANAGER: GiveawayManager = GiveawayManager::new();
+}
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -446,7 +451,7 @@ impl GiveawayManager {
 
     fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {
         if user.id.get() != giveaway.owner().get_user_id() {
-            let message = format!("For interacting with this giveaway you need to be its owner.");
+            let message = "For interacting with this giveaway you need to be its owner.".to_string();
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
@@ -456,7 +461,7 @@ impl GiveawayManager {
     fn check_giveaway_is_active(&self, giveaway: &Giveaway) -> Result<()> {
         if !giveaway.is_activated() {
             let message =
-                format!("The giveaway hasn't started yet or has been suspended by the owner.");
+                "The giveaway hasn't started yet or has been suspended by the owner.".to_string();
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
@@ -477,7 +482,7 @@ mod tests {
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
-        current_user.id = UserId(user_id);
+        current_user.id = UserId::new(user_id);
         current_user.name = username.to_owned();
         DiscordUser::from(current_user)
     }

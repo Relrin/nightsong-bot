@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use serenity::framework::standard::{Args, Delimiter};
+use poise::parse_invocation;
 
 use crate::commands::giveaway::models::{ConcurrencyReward, ObjectState, Reward};
 use crate::commands::giveaway::strategies::base::{GiveawayStrategy, RollOptions};
@@ -17,10 +18,8 @@ impl ManualSelectStrategy {
 
     fn check_rewards_are_defined(&self, options: &RollOptions) -> Result<()> {
         if options.rewards().lock().unwrap().len() == 0 {
-            let message = format!(
-                "The giveaway doesn't have any rewards. Please, add rewards \
-                or ask to do an owner."
-            );
+            let message = "The giveaway doesn't have any rewards. Please, add rewards \
+                or ask to do an owner.".to_string();
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 

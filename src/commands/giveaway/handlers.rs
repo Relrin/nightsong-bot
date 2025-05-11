@@ -1,49 +1,39 @@
-use serenity::client::Context;
+use serenity::all::CreateMessage;
 use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::Args;
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use serenity::utils::MessageBuilder;
 
+use crate::error::Error;
+use crate::commands::context::Context;
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
 use crate::commands::giveaway::utils::{periodic_giveaway_state_output, update_giveaway_message};
+use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
 use crate::storage::GiveawayStorage;
 
-#[group]
-#[commands(
-    // Giveaway management
-    list_giveaways,
-    create_giveaway,
-    start_giveaway,
-    deactivate_giveaway,
-    finish_giveaway,
+// Giveaway management
+// - [x] list_giveaways,
+// - [ ] create_giveaway,
+// - [ ] start_giveaway,
+// - [ ] deactivate_giveaway,
+// - [ ] finish_giveaway,
+//
+// Giveaway rewards management
+// - [ ] list_rewards,
+// - [ ] add_reward,
+// - [ ] add_multiple_rewards,
+// - [ ] remove_reward,
+//
+// Interaction with the giveaway
+// - [ ] roll_reward,
+// - [ ] confirm_reward,
+// - [ ] deny_reward,
 
-    // Giveaway rewards management
-    list_rewards,
-    add_reward,
-    add_multiple_rewards,
-    remove_reward,
-
-    // Interaction with the giveaway
-    roll_reward,
-    confirm_reward,
-    deny_reward,
-)]
-#[description = "Commands for managing giveaways"]
-#[help_available]
-struct Giveaway;
-
-#[command("glist")]
-#[description = "Get a list of available giveaways"]
-async fn list_giveaways(ctx: &Context, msg: &Message) -> CommandResult {
-    let giveaway_manager = ctx
-        .data
-        .read()
-        .get::<GiveawayStorage>()
-        .cloned()
-        .expect("Expected GiveawayManager in ShareMap.");
-
-    let giveaways = giveaway_manager
+#[poise::command(prefix_command, rename="glist")]
+/// Get a list of available giveaways
+pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
+    let giveaways = GIVEAWAY_MANAGER
         .get_giveaways()
         .iter()
         .enumerate()
@@ -55,8 +45,8 @@ async fn list_giveaways(ctx: &Context, msg: &Message) -> CommandResult {
         _ => format!("Giveaways:\n{}", giveaways.join("\n")),
     };
 
-    let message = MessageBuilder::new().push(content).build();
-    msg.channel_id.say(&ctx.http, message)?;
+    let message = CreateMessage::new().content(content);
+    ctx.channel_id().send_message(&ctx.http(), message).await?;
 
     Ok(())
 }

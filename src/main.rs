@@ -4,21 +4,19 @@ pub mod storage;
 
 use std::env;
 use std::sync::Arc;
+use poise::{Framework, FrameworkOptions, PrefixFrameworkOptions};
+use poise::builtins::register_globally;
 use poise::serenity_prelude::GatewayIntents;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
-//use serenity::framework::standard::{StandardFramework, Configuration};
-use serenity::framework::standard::macros::{hook};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use tracing::{error, info, instrument};
+use tracing::{error, info};
 
-use crate::commands::UserData;
-use crate::commands::giveaway::manager::GiveawayManager;
-use crate::commands::{GET_COMMANDS_LIST, GIVEAWAY_GROUP};
+use crate::commands::{help, list_giveaways};
+use crate::commands::context::UserData;
 use crate::error::Error;
 use crate::storage::{BotIdStorage, GiveawayStorage};
-
 
 pub struct Handler;
 
@@ -67,35 +65,29 @@ impl EventHandler for Handler {
     }
 }
 
-#[hook]
-#[instrument]
-async fn before(_: &Context, msg: &Message, command_name: &str) -> bool {
-    info!("Got command '{}' by user '{}'", command_name, msg.author.name);
-    true
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let framework = poise::Framework::<UserData, Error>::builder()
-        .options(poise::FrameworkOptions {
-            commands: vec![],
+    let framework = Framework::<UserData, Error>::builder()
+        .options(FrameworkOptions {
+            commands: vec![
+                help(),
+                list_giveaways(),
+            ],
+            prefix_options: PrefixFrameworkOptions {
+                prefix: Some("!".into()),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                register_globally(ctx, &framework.options().commands).await?;
                 Ok(UserData {})
             })
         })
         .build();
-
-    //let framework = StandardFramework::new()
-    //   .before(before)
-    //   .help(&GET_COMMANDS_LIST)
-    //   .group(&GIVEAWAY_GROUP);
-    //framework.configure(Configuration::new().prefix("!"));
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a DISCORD_TOKEN in the environment");
     let intents = GatewayIntents::non_privileged();
@@ -111,7 +103,6 @@ async fn main() {
     };
     {
         let mut data = client.data.write().await;
-        data.insert::<GiveawayStorage>(Arc::new(GiveawayManager::new()));
         data.insert::<BotIdStorage>(Arc::new(bot_id));
     }
 
