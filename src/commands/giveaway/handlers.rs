@@ -51,30 +51,26 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-// #[command("gcreate")]
-// #[min_args(1)]
-// #[help_available]
-// #[usage("<description>")]
-// #[example("My new Steam / EGS games giveaway.")]
-// #[description = "Create a new giveaway"]
-// async fn create_giveaway(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-//     let description = args.message();
-//     let giveaway = GiveawayInstance::new(&msg.author).with_description(description);
-// 
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-// 
-//     giveaway_manager.add_giveaway(giveaway);
-//     msg.channel_id
-//         .say(&ctx.http, "The giveaway has been created!")?;
-// 
-//     Ok(())
-// }
-// 
+#[poise::command(prefix_command, rename="gcreate")]
+/// Create a new giveaway
+pub async fn create_giveaway(
+    ctx: Context<'_>,
+    #[min_length = 1]
+    #[description = "Shown message about the giveaway"]
+    #[rest]
+    description: String
+) -> Result<(), Error> {
+    let author = ctx.author();
+    let giveaway = GiveawayInstance::new(&author).with_description(&description);
+
+    GIVEAWAY_MANAGER.add_giveaway(giveaway);
+
+    let message = CreateMessage::new().content("The giveaway has been created!");
+    ctx.channel_id().send_message(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
 // #[command("gstart")]
 // #[min_args(1)]
 // #[max_args(1)]
@@ -93,14 +89,14 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.activate_giveaway(&msg.author, index) {
 //         Ok(_) => {
 //             let response = giveaway_manager.pretty_print_giveaway(index)?;
@@ -110,10 +106,10 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             msg.channel_id.say(&ctx.http, format!("{}", err))?;
 //         }
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gdeactivate")]
 // #[min_args(1)]
 // #[max_args(1)]
@@ -132,24 +128,24 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.deactivate_giveaway(&msg.author, index) {
 //         Ok(_) => msg
 //             .channel_id
 //             .say(&ctx.http, "The giveaway has been deactivated.")?,
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gfinish")]
 // #[min_args(1)]
 // #[max_args(1)]
@@ -168,24 +164,24 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.delete_giveaway(&msg.author, index) {
 //         Ok(_) => msg
 //             .channel_id
 //             .say(&ctx.http, "The giveaway has been finished.")?,
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gitems")]
 // #[min_args(1)]
 // #[max_args(1)]
@@ -204,7 +200,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -212,7 +208,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.get_giveaway_rewards(&msg.author, index) {
 //         Ok(items) => {
 //             let giveaway = giveaway_manager.get_giveaway_by_index(index).unwrap();
@@ -233,16 +229,16 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //                         .join("\n")
 //                 ),
 //             };
-// 
+//
 //             let message = MessageBuilder::new().push(content).build();
 //             msg.channel_id.say(&ctx.http, message)?
 //         }
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gadd")]
 // #[min_args(2)]
 // #[help_available]
@@ -262,7 +258,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         }
 //     };
 //     let data = args.rest();
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -270,17 +266,17 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.add_giveaway_reward(&msg.author, index, data) {
 //         Ok(_) => msg
 //             .channel_id
 //             .say(&ctx.http, "The reward has been added to the giveaway.")?,
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gaddm")]
 // #[min_args(2)]
 // #[help_available]
@@ -298,7 +294,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         }
 //     };
 //     let data = args.rest();
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -306,17 +302,17 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.add_multiple_giveaway_rewards(&msg.author, index, data) {
 //         Ok(_) => msg
 //             .channel_id
 //             .say(&ctx.http, "The reward has been added to the giveaway.")?,
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("gremove")]
 // #[min_args(2)]
 // #[max_args(2)]
@@ -345,7 +341,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -353,17 +349,17 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.remove_giveaway_reward(&msg.author, index, reward_index) {
 //         Ok(_) => msg
 //             .channel_id
 //             .say(&ctx.http, "The reward has been removed from the giveaway.")?,
 //         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
 //     };
-// 
+//
 //     Ok(())
 // }
-// 
+//
 // #[command("groll")]
 // #[min_args(1)]
 // #[help_available]
@@ -381,7 +377,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -389,7 +385,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.roll_reward(&msg.author, index, args.rest()) {
 //         Ok(response) => match response {
 //             Some(reward) => {
@@ -401,12 +397,12 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             msg.channel_id.say(&ctx.http, format!("{}", err))?;
 //         }
 //     };
-// 
+//
 //     update_giveaway_message(ctx, msg, &giveaway_manager, index);
 //     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
 //     Ok(())
 // }
-// 
+//
 // #[command("gconfirm")]
 // #[min_args(2)]
 // #[max_args(2)]
@@ -435,7 +431,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -443,19 +439,19 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.confirm_reward(&msg.author, index, reward_index) {
 //         Ok(_) => (),
 //         Err(err) => {
 //             msg.reply(&ctx.http, format!("{}", err))?;
 //         }
 //     };
-// 
+//
 //     update_giveaway_message(ctx, msg, &giveaway_manager, index);
 //     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
 //     Ok(())
 // }
-// 
+//
 // #[command("gdeny")]
 // #[min_args(2)]
 // #[max_args(2)]
@@ -484,7 +480,7 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //             return Ok(());
 //         }
 //     };
-// 
+//
 //     let giveaway_manager = ctx
 //         .data
 //         .write()
@@ -492,14 +488,14 @@ pub async fn list_giveaways(ctx: Context<'_>) -> Result<(), Error> {
 //         .get::<GiveawayStorage>()
 //         .cloned()
 //         .expect("Expected GiveawayManager in ShareMap.");
-// 
+//
 //     match giveaway_manager.deny_reward(&msg.author, index, reward_index) {
 //         Ok(_) => (),
 //         Err(err) => {
 //             msg.reply(&ctx.http, format!("{}", err))?;
 //         }
 //     };
-// 
+//
 //     update_giveaway_message(ctx, msg, &giveaway_manager, index);
 //     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
 //     Ok(())

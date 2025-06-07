@@ -7,5 +7,6 @@ pub mod strategies;
 pub mod utils;
 
 pub use crate::commands::giveaway::handlers::{
-    list_giveaways
+    list_giveaways,
+    create_giveaway,
 };

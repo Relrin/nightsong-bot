@@ -15,6 +15,7 @@ use tracing::{error, info};
 
 use crate::commands::{help, list_giveaways};
 use crate::commands::context::UserData;
+use crate::commands::giveaway::create_giveaway;
 use crate::error::Error;
 use crate::storage::{BotIdStorage, GiveawayStorage};
 
@@ -74,6 +75,7 @@ async fn main() {
             commands: vec![
                 help(),
                 list_giveaways(),
+                create_giveaway(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 prefix: Some("!".into()),
