@@ -113,6 +113,7 @@ pub struct Giveaway {
     // The formatter instance used for generating output for each
     // added or updated reward.
     reward_formatter: Arc<Box<dyn RewardFormatter + Send + Sync>>,
+    is_deleted: Arc<AtomicBool>,
 }
 
 impl Giveaway {
@@ -128,6 +129,7 @@ impl Giveaway {
             actions_required_to_output: OUTPUT_AFTER_GIVEAWAY_COMMANDS,
             actions_processed: Arc::new(AtomicU64::new(0)),
             reward_formatter: Arc::new(Box::new(DefaultRewardFormatter::new())),
+            is_deleted: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -205,6 +207,11 @@ impl Giveaway {
     // Return a reward formatter.
     pub fn reward_formatter(&self) -> Arc<Box<dyn RewardFormatter + Send + Sync>> {
         self.reward_formatter.clone()
+    }
+
+    // Marks giveaway as deleted
+    pub fn mark_as_deleted(&self) {
+        self.is_deleted.store(true, Ordering::SeqCst);
     }
 
     // Returns a list of all available rewards.
@@ -423,7 +430,7 @@ mod tests {
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
-        current_user.id = UserId(user_id);
+        current_user.id = UserId::new(user_id);
         current_user.name = username.to_owned();
         DiscordUser::from(current_user)
     }

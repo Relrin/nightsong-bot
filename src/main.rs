@@ -67,7 +67,7 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().init();
 
     let framework = Framework::<UserData, Error>::builder()
         .options(FrameworkOptions {
@@ -90,7 +90,9 @@ async fn main() {
         .build();
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a DISCORD_TOKEN in the environment");
-    let intents = GatewayIntents::non_privileged();
+    let intents = GatewayIntents::non_privileged()
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
     let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
         .framework(framework)
@@ -99,14 +101,14 @@ async fn main() {
 
     let bot_id = match client.http.get_current_application_info().await {
         Ok(info) => info.id,
-        Err(why) => panic!("Could not access application info: {:?}", why),
+        Err(err) => panic!("Could not access application info: {:?}", err),
     };
     {
         let mut data = client.data.write().await;
         data.insert::<BotIdStorage>(Arc::new(bot_id));
     }
 
-    if let Err(why) = client.start().await {
-        error!("Client error: {:?}", why);
+    if let Err(err) = client.start().await {
+        error!("Client error: {:?}", err);
     }
 }

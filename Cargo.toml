@@ -8,7 +8,7 @@ readme = "README.md"
 
 [dependencies]
 crossbeam = "0.8.2"
-boxcar = "0.2.11"
+orx-concurrent-vec = "3.6.0"
 dashmap = "5.5.3"
 failure = "0.1.8"
 lazy_static = "1.4.0"
@@ -16,7 +16,7 @@ regex = "1.9.5"
 readonly = "0.2.11"
 serenity = { version = "0.12.4", default-features = true}
 tracing = "0.1.23"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3.19", features = ["fmt"] }
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 poise = "0.6.1"
 uuid = { version = "1.4.1", features = ["v4"] }

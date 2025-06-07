@@ -1,11 +1,12 @@
 use std::sync::Arc;
-
+use serenity::builder::EditMessage;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use tracing::error;
 
 use crate::commands::giveaway::manager::GiveawayManager;
 
-pub fn update_giveaway_message(
+pub async fn update_giveaway_message(
     ctx: &mut Context,
     msg: &Message,
     giveaway_manager: &Arc<GiveawayManager>,
@@ -14,7 +15,7 @@ pub fn update_giveaway_message(
     let giveaway = match giveaway_manager.get_giveaway_by_index(index) {
         Ok(giveaway) => giveaway,
         Err(err) => {
-            println!("Can't get giveaway by index: {}", err.to_string());
+            error!("Can't get giveaway by index: {}", err.to_string());
             return;
         }
     };
@@ -22,7 +23,7 @@ pub fn update_giveaway_message(
     let update_msg = match giveaway_manager.pretty_print_giveaway(index) {
         Ok(output) => output,
         Err(err) => {
-            println!(
+            error!(
                 "Can't retrieve formatted giveaway state: {}",
                 err.to_string()
             );
@@ -35,28 +36,31 @@ pub fn update_giveaway_message(
         Some(message_id) => {
             match msg
                 .channel_id
-                .edit_message(&ctx.http, message_id, |m| m.content(&update_msg))
+                .edit_message(&ctx.http, message_id, EditMessage::new().content(&update_msg))
+                .await
             {
                 Ok(_) => (),
                 Err(_) => {
-                    msg.channel_id.say(&ctx.http, &update_msg).unwrap();
+                    msg.channel_id.say(&ctx.http, &update_msg).await.unwrap();
                 }
             }
         }
         // Send a new message in the chat (if it was missing by some reason)
-        None => match msg.channel_id.say(&ctx.http, &update_msg) {
-            Ok(_) => (),
-            Err(err) => {
-                println!(
+        None => {
+            match msg.channel_id.say(&ctx.http, &update_msg).await {
+                Ok(_) => (),
+                Err(err) => {
+                    error!(
                     "Impossible to output the giveaway message in the channel. Reason: {}",
                     err.to_string()
                 );
+                }
             }
         },
     }
 }
 
-pub fn periodic_giveaway_state_output(
+pub async fn periodic_giveaway_state_output(
     ctx: &mut Context,
     msg: &Message,
     giveaway_manager: &Arc<GiveawayManager>,
@@ -65,7 +69,7 @@ pub fn periodic_giveaway_state_output(
     let giveaway = match giveaway_manager.get_giveaway_by_index(index) {
         Ok(giveaway) => giveaway,
         Err(err) => {
-            println!("Can't get giveaway by index: {}", err.to_string());
+            error!("Can't get giveaway by index: {}", err.to_string());
             return;
         }
     };
@@ -75,10 +79,10 @@ pub fn periodic_giveaway_state_output(
 
         match giveaway_manager.pretty_print_giveaway(index) {
             Ok(response) => {
-                msg.channel_id.say(&ctx.http, &response).unwrap();
+                msg.channel_id.say(&ctx.http, &response).await.unwrap();
             }
             Err(err) => {
-                println!(
+                error!(
                     "Can't retrieve formatted giveaway state: {}",
                     err.to_string()
                 );
