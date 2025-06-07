@@ -75,54 +75,36 @@ pub async fn start_giveaway(
     ctx: Context<'_>,
     #[min = 1]
     #[max = 255]
-    #[description = "Shown message about the giveaway"]
+    #[description = "Number of the giveaway to activate"]
     giveaway_number: usize
 ) -> Result<(), Error> {
     let message = match GIVEAWAY_MANAGER.activate_giveaway(ctx.author(), giveaway_number) {
         Ok(_) => GIVEAWAY_MANAGER.pretty_print_giveaway(giveaway_number)?,
-        Err(err) =>  format!("{}", err),
+        Err(err) => format!("{}", err),
     };
     ctx.channel_id().say(&ctx.http(), message).await?;
 
     Ok(())
 }
 
-// #[command("gdeactivate")]
-// #[min_args(1)]
-// #[max_args(1)]
-// #[help_available]
-// #[usage("<giveaway-number>")]
-// #[example("1")]
-// #[description = "Deactivates the giveaway by the given number"]
-// async fn deactivate_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gdeactivate` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.deactivate_giveaway(&msg.author, index) {
-//         Ok(_) => msg
-//             .channel_id
-//             .say(&ctx.http, "The giveaway has been deactivated.")?,
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
+#[poise::command(prefix_command, rename="gdeactivate")]
+/// Deactivates the giveaway by the given number
+pub async fn deactivate_giveaway(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to deactivate"]
+    giveaway_number: usize
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.deactivate_giveaway(ctx.author(), giveaway_number) {
+        Ok(_) => String::from("The giveaway has been deactivated."),
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
 // #[command("gfinish")]
 // #[min_args(1)]
 // #[max_args(1)]

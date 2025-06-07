@@ -15,7 +15,7 @@ use tracing::{error, info};
 
 use crate::commands::{help, list_giveaways};
 use crate::commands::context::UserData;
-use crate::commands::giveaway::{create_giveaway, start_giveaway};
+use crate::commands::giveaway::{create_giveaway, deactivate_giveaway, start_giveaway};
 use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
 use crate::error::Error;
 use crate::storage::{BotIdStorage, GiveawayStorage};
@@ -68,6 +68,7 @@ async fn main() {
                 list_giveaways(),
                 create_giveaway(),
                 start_giveaway(),
+                deactivate_giveaway(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 prefix: Some("!".into()),

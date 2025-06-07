@@ -125,8 +125,8 @@ impl GiveawayManager {
     }
 
     // Parses the given message into multiple reward and then adds them to the
-    // certain giveaway. The separator is the `\n` (just a new line) for the
-    // each declared reward. Owners can add rewards only for their own giveaways.
+    // certain giveaway. The separator is the `\n` (just a new line) for each
+    // declared reward. Owners can add rewards only for their own giveaways.
     pub fn add_multiple_giveaway_rewards(
         &self,
         user: &DiscordUser,
@@ -158,7 +158,7 @@ impl GiveawayManager {
         Ok(())
     }
 
-    // Returns a reward from the requested giveaway in according with the set strategy.
+    // Returns a reward from the requested giveaway in according to the set strategy.
     pub fn roll_reward(
         &self,
         user: &DiscordUser,
@@ -200,7 +200,7 @@ impl GiveawayManager {
         user_data: &mut RefMut<u64, ParticipantStats>,
     ) -> ObjectState {
         match reward.is_preorder() {
-            // Any pre-order goes to activated instanly after the roll
+            // Any pre-order goes to activated instantly after the roll
             true => {
                 user_data.add_retrieved_reward(reward.id());
                 ObjectState::Activated
