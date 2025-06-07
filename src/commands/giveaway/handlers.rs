@@ -14,8 +14,8 @@ use crate::storage::GiveawayStorage;
 
 // Giveaway management
 // - [x] list_giveaways,
-// - [ ] create_giveaway,
-// - [ ] start_giveaway,
+// - [x] create_giveaway,
+// - [x] start_giveaway,
 // - [ ] deactivate_giveaway,
 // - [ ] finish_giveaway,
 //
@@ -62,54 +62,31 @@ pub async fn create_giveaway(
 ) -> Result<(), Error> {
     let author = ctx.author();
     let giveaway = GiveawayInstance::new(&author).with_description(&description);
-
     GIVEAWAY_MANAGER.add_giveaway(giveaway);
 
     let message = CreateMessage::new().content("The giveaway has been created!");
     ctx.channel_id().send_message(&ctx.http(), message).await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gstart")]
+/// Start the certain giveaway
+pub async fn start_giveaway(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Shown message about the giveaway"]
+    giveaway_number: usize
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.activate_giveaway(ctx.author(), giveaway_number) {
+        Ok(_) => GIVEAWAY_MANAGER.pretty_print_giveaway(giveaway_number)?,
+        Err(err) =>  format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
 
     Ok(())
 }
 
-// #[command("gstart")]
-// #[min_args(1)]
-// #[max_args(1)]
-// #[help_available]
-// #[usage("<giveaway-number>")]
-// #[example("1")]
-// #[description = "Start the certain giveaway"]
-// async fn start_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gstart` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.activate_giveaway(&msg.author, index) {
-//         Ok(_) => {
-//             let response = giveaway_manager.pretty_print_giveaway(index)?;
-//             msg.channel_id.say(&ctx.http, &response)?;
-//         }
-//         Err(err) => {
-//             msg.channel_id.say(&ctx.http, format!("{}", err))?;
-//         }
-//     };
-//
-//     Ok(())
-// }
-//
 // #[command("gdeactivate")]
 // #[min_args(1)]
 // #[max_args(1)]

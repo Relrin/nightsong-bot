@@ -15,7 +15,8 @@ use tracing::{error, info};
 
 use crate::commands::{help, list_giveaways};
 use crate::commands::context::UserData;
-use crate::commands::giveaway::create_giveaway;
+use crate::commands::giveaway::{create_giveaway, start_giveaway};
+use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
 use crate::error::Error;
 use crate::storage::{BotIdStorage, GiveawayStorage};
 
@@ -44,18 +45,8 @@ impl EventHandler for Handler {
                 .parse::<usize>()
                 .unwrap();
 
-            let giveaway_manager = ctx
-                .data
-                .write()
-                .await
-                .get::<GiveawayStorage>()
-                .cloned()
-                .expect("Expected GiveawayManager in ShareMap.");
-
-            match giveaway_manager.get_giveaway_by_index(index) {
-                Ok(giveaway) => {
-                    giveaway.set_message_id(Some(msg.id));
-                }
+            match GIVEAWAY_MANAGER.get_giveaway_by_index(index) {
+                Ok(giveaway) => { giveaway.set_message_id(Some(msg.id)); }
                 Err(err) => error!("Can't get the giveaway by index: {}", err.to_string()),
             };
         }
@@ -76,6 +67,7 @@ async fn main() {
                 help(),
                 list_giveaways(),
                 create_giveaway(),
+                start_giveaway(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 prefix: Some("!".into()),

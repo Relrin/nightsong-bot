@@ -9,4 +9,5 @@ pub mod utils;
 pub use crate::commands::giveaway::handlers::{
     list_giveaways,
     create_giveaway,
+    start_giveaway,
 };
