@@ -10,7 +10,7 @@ use crate::error::Result;
 pub struct RollOptions<'a> {
     user: &'a Participant,
     rewards: &'a ConcurrencyRewardsVec,
-    raw_message: &'a str,
+    reward_number: usize,
     stats: Arc<DashMap<u64, ParticipantStats>>,
 }
 
@@ -18,13 +18,13 @@ impl<'a> RollOptions<'a> {
     pub fn new(
         user: &'a Participant,
         rewards: &'a ConcurrencyRewardsVec,
-        raw_message: &'a str,
+        reward_number: usize,
         stats: &Arc<DashMap<u64, ParticipantStats>>,
     ) -> Self {
         RollOptions {
             user,
             rewards,
-            raw_message,
+            reward_number,
             stats: stats.clone(),
         }
     }
@@ -39,19 +39,19 @@ impl<'a> RollOptions<'a> {
         self.rewards
     }
 
-    // Returns the raw message as is for later usage.
-    pub fn raw_message(&self) -> &'a str {
-        self.raw_message
+    // Returns the latest selected reward from the giveaway list
+    pub fn reward_number(&self) -> usize {
+        self.reward_number
     }
 
-    // Returns latest statistics in according with the requested giveaway.
+    // Returns latest statistics in according to the requested giveaway.
     pub fn stats(&self) -> Arc<DashMap<u64, ParticipantStats>> {
         self.stats.clone()
     }
 }
 
 pub trait GiveawayStrategy: Send + Sync {
-    // Returns a reward in according with the passed roll options.
+    // Returns a reward in according to the passed roll options.
     fn roll(&self, options: &RollOptions) -> Result<Arc<Box<Reward>>>;
 
     // Converts the reward instance into the text message. Returns None when

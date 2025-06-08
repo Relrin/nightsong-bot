@@ -18,7 +18,7 @@ use crate::commands::context::UserData;
 use crate::commands::giveaway::{add_multiple_rewards, add_reward, confirm_reward, create_giveaway, deactivate_giveaway, deny_reward, finish_giveaway, list_rewards, remove_reward, roll_reward, start_giveaway};
 use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
 use crate::error::Error;
-use crate::storage::{BotIdStorage, GiveawayStorage};
+use crate::storage::BotIdStorage;
 
 pub struct Handler;
 

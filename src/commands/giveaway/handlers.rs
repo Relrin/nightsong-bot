@@ -1,8 +1,4 @@
 use serenity::all::CreateMessage;
-use serenity::framework::standard::macros::{command, group};
-use serenity::framework::standard::Args;
-use serenity::framework::standard::CommandResult;
-use serenity::model::channel::Message;
 use serenity::utils::MessageBuilder;
 
 use crate::error::Error;
@@ -10,26 +6,6 @@ use crate::commands::context::Context;
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
 use crate::commands::giveaway::utils::{periodic_giveaway_state_output, update_giveaway_message};
 use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
-use crate::error::ErrorKind::Giveaway;
-use crate::storage::GiveawayStorage;
-
-// Giveaway management
-// - [x] list_giveaways,
-// - [x] create_giveaway,
-// - [x] start_giveaway,
-// - [x] deactivate_giveaway,
-// - [x] finish_giveaway,
-//
-// Giveaway rewards management
-// - [ ] list_rewards,
-// - [ ] add_reward,
-// - [ ] add_multiple_rewards,
-// - [ ] remove_reward,
-//
-// Interaction with the giveaway
-// - [ ] roll_reward,
-// - [ ] confirm_reward,
-// - [ ] deny_reward,
 
 #[poise::command(prefix_command, rename="glist")]
 /// Get a list of available giveaways
@@ -238,12 +214,12 @@ pub async fn roll_reward(
     #[max = 255]
     #[description = "Number of the giveaway to interact with the reward"]
     giveaway_number: usize,
-    #[min_length = 1]
+    #[min = 1]
+    #[max = 255]
     #[description = "Reward number"]
-    #[rest]
-    reward_number: String
+    reward_number: usize
 ) -> Result<(), Error> {
-    match GIVEAWAY_MANAGER.roll_reward(ctx.author(), giveaway_number, &reward_number) {
+    match GIVEAWAY_MANAGER.roll_reward(ctx.author(), giveaway_number, reward_number) {
         Ok(response) => match response {
             Some(reward) => {
                 ctx.channel_id().say(&ctx.http(), reward).await?;

@@ -1,7 +1,4 @@
-use std::sync::Arc;
 use serenity::builder::EditMessage;
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
 use tracing::error;
 
 use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;

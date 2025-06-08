@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use serenity::framework::standard::{Args, Delimiter};
-
 use crate::commands::giveaway::models::{ConcurrencyReward, ObjectState, Reward};
 use crate::commands::giveaway::strategies::base::{GiveawayStrategy, RollOptions};
 use crate::error::{Error, ErrorKind, Result};
@@ -47,11 +45,9 @@ impl ManualSelectStrategy {
             .collect::<Vec<ConcurrencyReward>>();
 
         if pending_rewards.len() > 0 {
-            let message = format!(
-                "It's not possible to have more than one reward in \
+            let message = "It's not possible to have more than one reward in \
                 the pending state. Please, activate the previous reward, \
-                or invoke the `!greroll` command."
-            );
+                or invoke the `!groll` command.".to_string();
             return Err(Error::from(ErrorKind::Giveaway(message)));
         }
 
@@ -79,15 +75,7 @@ impl ManualSelectStrategy {
     }
 
     fn get_reward(&self, options: &RollOptions) -> Result<Arc<Box<Reward>>> {
-        let mut args = Args::new(options.raw_message(), &[Delimiter::Single(' ')]);
-        let index = match args.single::<usize>() {
-            Ok(value) => value,
-            Err(_) => {
-                let message = format!("The request reward index must be a positive integer.");
-                return Err(Error::from(ErrorKind::Giveaway(message)));
-            }
-        };
-
+        let index = options.reward_number();
         let ref_rewards = options.rewards().clone();
         let guard_rewards = ref_rewards.lock().unwrap();
         match index > 0 && index < guard_rewards.len() + 1 {
@@ -95,14 +83,14 @@ impl ManualSelectStrategy {
                 let reward = guard_rewards[index - 1].clone();
 
                 if reward.object_state() != ObjectState::Unused {
-                    let message = format!("This reward has already been taken by someone.");
+                    let message = "This reward has already been taken by someone.".to_string();
                     return Err(Error::from(ErrorKind::Giveaway(message)));
                 }
 
                 Ok(reward)
             }
             false => {
-                let message = format!("The requested reward was not found.");
+                let message = "The requested reward was not found.".to_string();
                 Err(Error::from(ErrorKind::Giveaway(message)))
             }
         }
@@ -151,7 +139,7 @@ mod tests {
         let reward_1 = Arc::new(Box::new(Reward::new("reward #1")));
         let rewards = Arc::new(Mutex::new(Box::new(vec![reward_1.clone()])));
         let stats = Arc::new(DashMap::new());
-        let options = RollOptions::new(&participant, &rewards, "1", &stats);
+        let options = RollOptions::new(&participant, &rewards, 1, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let roll = strategy.roll(&options).unwrap();
@@ -164,17 +152,15 @@ mod tests {
         let participant = Participant::from(user);
         let rewards = Arc::new(Mutex::new(Box::new(vec![])));
         let stats = Arc::new(DashMap::new());
-        let options = RollOptions::new(&participant, &rewards, "1", &stats);
+        let options = RollOptions::new(&participant, &rewards, 1, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let result = strategy.roll(&options);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "The giveaway doesn't have any rewards. Please, add rewards \
-                or ask to do an owner."
-            )))
+            Error::from(ErrorKind::Giveaway("The giveaway doesn't have any rewards. Please, add rewards \
+                or ask to do an owner.".to_string()))
         );
     }
 
@@ -196,18 +182,16 @@ mod tests {
         let stats = Arc::new(DashMap::new());
         stats.insert(participant.get_user_id(), participant_1_stats);
 
-        let options = RollOptions::new(&participant, &rewards, "2", &stats);
+        let options = RollOptions::new(&participant, &rewards, 2, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let result = strategy.roll(&options);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "It's not possible to have more than one reward in \
+            Error::from(ErrorKind::Giveaway("It's not possible to have more than one reward in \
                 the pending state. Please, activate the previous reward, \
-                or invoke the `!greroll` command."
-            )))
+                or invoke the `!groll` command.".to_string()))
         );
     }
 
@@ -231,36 +215,14 @@ mod tests {
         let stats = Arc::new(DashMap::new());
         stats.insert(participant.get_user_id(), participant_1_stats);
 
-        let options = RollOptions::new(&participant, &rewards, "2", &stats);
+        let options = RollOptions::new(&participant, &rewards, 2, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let result = strategy.roll(&options);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "All possible rewards have been handed out."
-            )))
-        );
-    }
-
-    #[test]
-    fn test_get_error_for_invalid_argument_input() {
-        let user = get_user(1, "Test");
-        let participant = Participant::from(user);
-        let reward_1 = Arc::new(Box::new(Reward::new("reward #1")));
-        let rewards = Arc::new(Mutex::new(Box::new(vec![reward_1.clone()])));
-        let stats = Arc::new(DashMap::new());
-        let options = RollOptions::new(&participant, &rewards, "", &stats);
-
-        let strategy = ManualSelectStrategy::new();
-        let result = strategy.roll(&options);
-        assert_eq!(result.is_err(), true);
-        assert_eq!(
-            result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "The request reward index must be a positive integer."
-            )))
+            Error::from(ErrorKind::Giveaway("All possible rewards have been handed out.".to_string()))
         );
     }
 
@@ -282,16 +244,14 @@ mod tests {
         let stats = Arc::new(DashMap::new());
         stats.insert(participant.get_user_id(), participant_1_stats);
 
-        let options = RollOptions::new(&participant, &rewards, "1", &stats);
+        let options = RollOptions::new(&participant, &rewards, 1, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let result = strategy.roll(&options);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "This reward has already been taken by someone."
-            )))
+            Error::from(ErrorKind::Giveaway("This reward has already been taken by someone.".to_string()))
         );
     }
 
@@ -302,16 +262,14 @@ mod tests {
         let reward_1 = Arc::new(Box::new(Reward::new("reward #1")));
         let rewards = Arc::new(Mutex::new(Box::new(vec![reward_1.clone()])));
         let stats = Arc::new(DashMap::new());
-        let options = RollOptions::new(&participant, &rewards, "2", &stats);
+        let options = RollOptions::new(&participant, &rewards, 2, &stats);
 
         let strategy = ManualSelectStrategy::new();
         let result = strategy.roll(&options);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway(format!(
-                "The requested reward was not found."
-            )))
+            Error::from(ErrorKind::Giveaway("The requested reward was not found.".to_string()))
         );
     }
 }

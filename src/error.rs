@@ -52,8 +52,6 @@ pub enum ErrorKind {
     RwLock(String),
     #[fail(display = "{}", _0)]
     Giveaway(String),
-    #[fail(display = "{}", description)]
-    Other { description: String },
 }
 
 impl From<SerenityError> for Error {

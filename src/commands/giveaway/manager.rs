@@ -164,7 +164,7 @@ impl GiveawayManager {
         &self,
         user: &DiscordUser,
         index: usize,
-        raw_message: &str,
+        reward_number: usize,
     ) -> Result<Option<String>> {
         let giveaway = self.get_giveaway_by_index(index)?;
         self.check_giveaway_is_active(&giveaway)?;
@@ -174,7 +174,7 @@ impl GiveawayManager {
         let participant = Participant::from(user.clone());
         let stats = giveaway.stats();
         let rewards = giveaway.raw_rewards();
-        let roll_options = RollOptions::new(&participant, &rewards, raw_message, &stats);
+        let roll_options = RollOptions::new(&participant, &rewards, reward_number, &stats);
         let strategy = giveaway.strategy();
         let selected_reward = strategy.roll(&roll_options)?;
 
@@ -843,7 +843,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        let result = manager.roll_reward(&owner, 1, "1");
+        let result = manager.roll_reward(&owner, 1, 1);
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
@@ -863,7 +863,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        let result = manager.roll_reward(&owner, 1, "1");
+        let result = manager.roll_reward(&owner, 1, 1);
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap(), None);
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
@@ -878,7 +878,7 @@ mod tests {
         let giveaway = Giveaway::new(&owner).with_description("test giveaway");
         manager.add_giveaway(giveaway);
 
-        let result = manager.roll_reward(&owner, 1, "1");
+        let result = manager.roll_reward(&owner, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
@@ -896,7 +896,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         let result = manager.confirm_reward(&owner, 1, 1);
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap(), ());
@@ -961,7 +961,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         manager.confirm_reward(&owner, 1, 1).unwrap();
         let result = manager.confirm_reward(&owner, 1, 1);
         assert_eq!(result.is_err(), true);
@@ -984,8 +984,8 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
-        manager.roll_reward(&user, 1, "2").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
+        manager.roll_reward(&user, 1, 2).unwrap();
         let result = manager.confirm_reward(&user, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
@@ -1006,7 +1006,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         let result = manager.confirm_reward(&owner, 1, 2);
         assert_eq!(result.is_err(), true);
         assert_eq!(
@@ -1026,7 +1026,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         let result = manager.confirm_reward(&user, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
@@ -1045,7 +1045,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         let result = manager.deny_reward(&owner, 1, 1);
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap(), ());
@@ -1110,7 +1110,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         manager.confirm_reward(&owner, 1, 1).unwrap();
         let result = manager.deny_reward(&owner, 1, 1);
         assert_eq!(result.is_err(), true);
@@ -1133,8 +1133,8 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
-        manager.roll_reward(&user, 1, "2").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
+        manager.roll_reward(&user, 1, 2).unwrap();
         let result = manager.deny_reward(&user, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
@@ -1173,7 +1173,7 @@ mod tests {
         giveaway.activate();
         manager.add_giveaway(giveaway);
 
-        manager.roll_reward(&owner, 1, "1").unwrap();
+        manager.roll_reward(&owner, 1, 1).unwrap();
         let result = manager.deny_reward(&user, 1, 1);
         assert_eq!(result.is_err(), true);
         assert_eq!(
@@ -1193,7 +1193,7 @@ mod tests {
         manager.add_giveaway(giveaway);
 
         for _ in 0..OUTPUT_AFTER_GIVEAWAY_COMMANDS {
-            manager.roll_reward(&owner, 1, "1").ok();
+            manager.roll_reward(&owner, 1, 1).ok();
         }
 
         let updated_giveaway = manager.get_giveaway_by_index(1).unwrap();
