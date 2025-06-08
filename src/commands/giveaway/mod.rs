@@ -21,4 +21,7 @@ pub use crate::commands::giveaway::handlers::{
     remove_reward,
     
     // Interaction with the giveaway
+    roll_reward,
+    confirm_reward,
+    deny_reward,
 };

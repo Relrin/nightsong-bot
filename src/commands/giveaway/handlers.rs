@@ -219,9 +219,9 @@ pub async fn remove_reward(
     #[description = "Number of the reward within the list"]
     #[min = 1]
     #[max = 255]
-    reward_index: usize
+    reward_number: usize
 ) -> Result<(), Error> {
-    let message = match GIVEAWAY_MANAGER.remove_giveaway_reward(ctx.author(), giveaway_number, reward_index) {
+    let message = match GIVEAWAY_MANAGER.remove_giveaway_reward(ctx.author(), giveaway_number, reward_number) {
         Ok(_) => String::from("The reward has been removed from the giveaway."),
         Err(err) => format!("{}", err),
     };
@@ -230,143 +230,85 @@ pub async fn remove_reward(
     Ok(())
 }
 
-// #[command("groll")]
-// #[min_args(1)]
-// #[help_available]
-// #[usage("<giveaway-number> <reward-number>")]
-// #[example("1 1")]
-// #[description = "Roll the reward from the certain giveaway"]
-// async fn roll_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `groll` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.roll_reward(&msg.author, index, args.rest()) {
-//         Ok(response) => match response {
-//             Some(reward) => {
-//                 msg.channel_id.say(&ctx.http, &reward)?;
-//             }
-//             None => (),
-//         },
-//         Err(err) => {
-//             msg.channel_id.say(&ctx.http, format!("{}", err))?;
-//         }
-//     };
-//
-//     update_giveaway_message(ctx, msg, &giveaway_manager, index);
-//     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
-//     Ok(())
-// }
-//
-// #[command("gconfirm")]
-// #[min_args(2)]
-// #[max_args(2)]
-// #[help_available]
-// #[usage("<giveaway-number> <reward-number>")]
-// #[example("1 1")]
-// #[description = "Confirm that the reward was activated from the certain giveaway"]
-// async fn confirm_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gconfirm` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//     let reward_index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `reward-number` argument for the `gconfirm` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.confirm_reward(&msg.author, index, reward_index) {
-//         Ok(_) => (),
-//         Err(err) => {
-//             msg.reply(&ctx.http, format!("{}", err))?;
-//         }
-//     };
-//
-//     update_giveaway_message(ctx, msg, &giveaway_manager, index);
-//     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
-//     Ok(())
-// }
-//
-// #[command("gdeny")]
-// #[min_args(2)]
-// #[max_args(2)]
-// #[help_available]
-// #[usage("<giveaway-number> <reward-number>")]
-// #[example("1 1")]
-// #[description = "Return the reward back that can't be activated"]
-// async fn deny_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gdeny` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//     let reward_index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `reward-number` argument for the `gdeny` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.deny_reward(&msg.author, index, reward_index) {
-//         Ok(_) => (),
-//         Err(err) => {
-//             msg.reply(&ctx.http, format!("{}", err))?;
-//         }
-//     };
-//
-//     update_giveaway_message(ctx, msg, &giveaway_manager, index);
-//     periodic_giveaway_state_output(ctx, msg, &giveaway_manager, index);
-//     Ok(())
-// }
+#[poise::command(prefix_command, rename="groll")]
+/// Roll the reward from the giveaway
+pub async fn roll_reward(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to interact with the reward"]
+    giveaway_number: usize,
+    #[min_length = 1]
+    #[description = "Reward number"]
+    #[rest]
+    reward_number: String
+) -> Result<(), Error> {
+    match GIVEAWAY_MANAGER.roll_reward(ctx.author(), giveaway_number, &reward_number) {
+        Ok(response) => match response {
+            Some(reward) => {
+                ctx.channel_id().say(&ctx.http(), reward).await?;
+            }
+            None => (),
+        },
+        Err(err) => {
+            let message = format!("{}", err);
+            ctx.channel_id().say(&ctx.http(), message).await?;
+        }
+    };
+
+    update_giveaway_message(ctx, giveaway_number).await;
+    periodic_giveaway_state_output(ctx, giveaway_number).await;
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gconfirm")]
+/// Confirm that the reward was activated from the certain giveaway
+pub async fn confirm_reward(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to interact with the reward"]
+    giveaway_number: usize,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Reward number"]
+    reward_number: usize
+) -> Result<(), Error> {
+    match GIVEAWAY_MANAGER.confirm_reward(&ctx.author(), giveaway_number, reward_number) {
+        Ok(_) => (),
+        Err(err) => {
+            let message = format!("{}", err);
+            ctx.channel_id().say(&ctx.http(), message).await?;
+        }
+    };
+
+    update_giveaway_message(ctx, giveaway_number).await;
+    periodic_giveaway_state_output(ctx, giveaway_number).await;
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gdeny")]
+/// Return the reward back that can't be activated
+pub async fn deny_reward(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to interact with the reward"]
+    giveaway_number: usize,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Reward number"]
+    reward_number: usize
+) -> Result<(), Error> {
+    match GIVEAWAY_MANAGER.deny_reward(&ctx.author(), giveaway_number, reward_number) {
+        Ok(_) => (),
+        Err(err) => {
+            let message = format!("{}", err);
+            ctx.channel_id().say(&ctx.http(), message).await?;
+        }
+    };
+
+    update_giveaway_message(ctx, giveaway_number).await;
+    periodic_giveaway_state_output(ctx, giveaway_number).await;
+    Ok(())
+}
