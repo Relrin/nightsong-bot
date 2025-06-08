@@ -124,184 +124,112 @@ pub async fn finish_giveaway(
     Ok(())
 }
 
-// #[command("gitems")]
-// #[min_args(1)]
-// #[max_args(1)]
-// #[help_available]
-// #[usage("<giveaway-number>")]
-// #[example("1")]
-// #[description = "Display detailed info about the rewards in the giveaway for the owner."]
-// async fn list_rewards(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gitems` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.get_giveaway_rewards(&msg.author, index) {
-//         Ok(items) => {
-//             let giveaway = giveaway_manager.get_giveaway_by_index(index).unwrap();
-//             let reward_formatter = giveaway.reward_formatter();
-//             let content = match items.len() {
-//                 0 => "There are no added rewards.".to_string(),
-//                 _ => format!(
-//                     "Rewards:\n{}",
-//                     items
-//                         .iter()
-//                         .enumerate()
-//                         .map(|(index, obj)| format!(
-//                             "{}. {}",
-//                             index + 1,
-//                             reward_formatter.debug_print(obj)
-//                         ))
-//                         .collect::<Vec<String>>()
-//                         .join("\n")
-//                 ),
-//             };
-//
-//             let message = MessageBuilder::new().push(content).build();
-//             msg.channel_id.say(&ctx.http, message)?
-//         }
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
-// #[command("gadd")]
-// #[min_args(2)]
-// #[help_available]
-// #[usage("<giveaway-number> <description>")]
-// #[example("1 Just a plain text with some description about the reward")]
-// #[example("1 AAAAA-BBBBB-CCCCC-DDDD [Store name] -> Game name")]
-// #[description = "Adds a new reward to the certain giveaway"]
-// async fn add_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gadd` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//     let data = args.rest();
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.add_giveaway_reward(&msg.author, index, data) {
-//         Ok(_) => msg
-//             .channel_id
-//             .say(&ctx.http, "The reward has been added to the giveaway.")?,
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
-// #[command("gaddm")]
-// #[min_args(2)]
-// #[help_available]
-// #[usage("<giveaway-number> <description>")]
-// #[description = "Adds a new reward to the certain giveaway, parsed from the single message. The separator for rewards is the new line"]
-// async fn add_multiple_rewards(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gaddm` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//     let data = args.rest();
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.add_multiple_giveaway_rewards(&msg.author, index, data) {
-//         Ok(_) => msg
-//             .channel_id
-//             .say(&ctx.http, "The reward has been added to the giveaway.")?,
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
-// #[command("gremove")]
-// #[min_args(2)]
-// #[max_args(2)]
-// #[help_available]
-// #[usage("<giveaway-number> <reward-to-remove>")]
-// #[example("1 1")]
-// #[description = "Removes the reward from the certain giveaway"]
-// async fn remove_reward(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gremove` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//     let reward_index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `reward-to-remove` argument for the `gremove` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .await
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.remove_giveaway_reward(&msg.author, index, reward_index) {
-//         Ok(_) => msg
-//             .channel_id
-//             .say(&ctx.http, "The reward has been removed from the giveaway.")?,
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
+#[poise::command(prefix_command, rename="gitems")]
+/// Display detailed info about the rewards in the giveaway for the owner.
+pub async fn list_rewards(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to finish and delete"]
+    giveaway_number: usize
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.get_giveaway_rewards(ctx.author(), giveaway_number) {
+        Ok(items) => {
+            let giveaway = GIVEAWAY_MANAGER.get_giveaway_by_index(giveaway_number)?;
+            let reward_formatter = giveaway.reward_formatter();
+            let content = match items.len() {
+                0 => "There are no added rewards.".to_string(),
+                _ => format!(
+                    "Rewards:\n{}",
+                    items
+                        .iter()
+                        .enumerate()
+                        .map(|(index, obj)| format!(
+                            "{}. {}",
+                            index + 1,
+                            reward_formatter.debug_print(obj)
+                        ))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                ),
+            };
+
+           MessageBuilder::new().push(content).build()
+        }
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gadd")]
+/// Adds a new reward to the giveaway
+pub async fn add_reward(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to add a reward"]
+    giveaway_number: usize,
+    #[min_length = 1]
+    #[description = "An item to be added to the giveaway. Can be a plain text or platform key in the `AAAAA-BBBBB-CCCCC-DDDD [Store name] -> Game name` format"]
+    #[rest]
+    reward: String
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.add_giveaway_reward(ctx.author(), giveaway_number, &reward) {
+        Ok(_) => String::from("The reward has been added to the giveaway."),
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gaddm")]
+/// Adds a new reward to the giveaway, parsed from the single message. The separator for rewards is the new line
+pub async fn add_multiple_rewards(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to add multiple rewards"]
+    giveaway_number: usize,
+    #[min_length = 1]
+    #[description = "List of rewards as the single message. The separator for rewards is the new line"]
+    #[rest]
+    rewards: String
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.add_multiple_giveaway_rewards(ctx.author(), giveaway_number, &rewards) {
+        Ok(_) => String::from("The reward has been added to the giveaway."),
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, rename="gremove")]
+/// Removes the reward from the giveaway
+pub async fn remove_reward(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to interact with the reward"]
+    giveaway_number: usize,
+    #[min_length = 1]
+    #[description = "Number of the reward within the list"]
+    #[min = 1]
+    #[max = 255]
+    reward_index: usize
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.remove_giveaway_reward(ctx.author(), giveaway_number, reward_index) {
+        Ok(_) => String::from("The reward has been removed from the giveaway."),
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
 // #[command("groll")]
 // #[min_args(1)]
 // #[help_available]
