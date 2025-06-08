@@ -14,6 +14,7 @@ use crate::commands::giveaway::models::{
 use crate::commands::giveaway::strategies::RollOptions;
 use crate::error::{Error, ErrorKind, Result};
 
+// TODO: Filter out invalid or delete giveaways
 lazy_static! {
     pub static ref GIVEAWAY_MANAGER: GiveawayManager = GiveawayManager::new();
 }

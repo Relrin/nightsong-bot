@@ -10,14 +10,15 @@ use crate::commands::context::Context;
 use crate::commands::giveaway::models::Giveaway as GiveawayInstance;
 use crate::commands::giveaway::utils::{periodic_giveaway_state_output, update_giveaway_message};
 use crate::commands::giveaway::manager::GIVEAWAY_MANAGER;
+use crate::error::ErrorKind::Giveaway;
 use crate::storage::GiveawayStorage;
 
 // Giveaway management
 // - [x] list_giveaways,
 // - [x] create_giveaway,
 // - [x] start_giveaway,
-// - [ ] deactivate_giveaway,
-// - [ ] finish_giveaway,
+// - [x] deactivate_giveaway,
+// - [x] finish_giveaway,
 //
 // Giveaway rewards management
 // - [ ] list_rewards,
@@ -105,42 +106,24 @@ pub async fn deactivate_giveaway(
     Ok(())
 }
 
-// #[command("gfinish")]
-// #[min_args(1)]
-// #[max_args(1)]
-// #[help_available]
-// #[usage("<giveaway-number>")]
-// #[example("1")]
-// #[description = "Finishes and deletes the giveaway by the given number"]
-// async fn finish_giveaway(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-//     let index = match args.single::<usize>() {
-//         Ok(value) => value,
-//         Err(_) => {
-//             msg.channel_id.say(
-//                 &ctx.http,
-//                 "The `giveaway-number` argument for the `gfinish` command must be a positive integer.",
-//             )?;
-//             return Ok(());
-//         }
-//     };
-//
-//     let giveaway_manager = ctx
-//         .data
-//         .write()
-//         .get::<GiveawayStorage>()
-//         .cloned()
-//         .expect("Expected GiveawayManager in ShareMap.");
-//
-//     match giveaway_manager.delete_giveaway(&msg.author, index) {
-//         Ok(_) => msg
-//             .channel_id
-//             .say(&ctx.http, "The giveaway has been finished.")?,
-//         Err(err) => msg.channel_id.say(&ctx.http, format!("{}", err))?,
-//     };
-//
-//     Ok(())
-// }
-//
+#[poise::command(prefix_command, rename="gfinish")]
+/// Finishes and deletes the giveaway by the given number
+pub async fn finish_giveaway(
+    ctx: Context<'_>,
+    #[min = 1]
+    #[max = 255]
+    #[description = "Number of the giveaway to finish and delete"]
+    giveaway_number: usize
+) -> Result<(), Error> {
+    let message = match GIVEAWAY_MANAGER.delete_giveaway(ctx.author(), giveaway_number) {
+        Ok(_) => String::from("The giveaway has been finished."),
+        Err(err) => format!("{}", err),
+    };
+    ctx.channel_id().say(&ctx.http(), message).await?;
+
+    Ok(())
+}
+
 // #[command("gitems")]
 // #[min_args(1)]
 // #[max_args(1)]

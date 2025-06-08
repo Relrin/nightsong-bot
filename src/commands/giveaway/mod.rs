@@ -11,4 +11,5 @@ pub use crate::commands::giveaway::handlers::{
     create_giveaway,
     start_giveaway,
     deactivate_giveaway,
+    finish_giveaway,
 };
