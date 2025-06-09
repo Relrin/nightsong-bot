@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::commands::giveaway::formatters::{DefaultRewardFormatter, RewardFormatter};
 use crate::commands::giveaway::parser::parse_message;
 use crate::commands::giveaway::strategies::{GiveawayStrategy, ManualSelectStrategy};
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 
 pub type ConcurrencyReward = Arc<Box<Reward>>;
 pub type ConcurrencyRewardsVec = Arc<Mutex<Box<Vec<ConcurrencyReward>>>>;
@@ -244,8 +244,8 @@ impl Giveaway {
                 guard_giveaways.remove(index - 1);
             }
             false => {
-                let message = format!("The requested reward was not found.");
-                return Err(Error::from(ErrorKind::Giveaway(message)));
+                let message = "The requested reward was not found.".to_string();
+                return Err(Error::Giveaway(message));
             }
         };
 

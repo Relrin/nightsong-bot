@@ -1,76 +1,25 @@
-use std::fmt::{self, Display};
 use std::result;
 use std::sync::TryLockError;
 
-use failure::{Backtrace, Context, Fail};
+use thiserror::Error as ThisError;
 use serenity::prelude::SerenityError;
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        self.inner.get_context().clone()
-    }
-}
-
-impl Eq for Error {}
-
-impl PartialEq for Error {
-    fn eq(&self, other: &Self) -> bool {
-        let self_error_kind = self.kind();
-        let other_error_kind = other.kind();
-        self_error_kind == other_error_kind
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "{}", _0)]
+#[derive(Debug, Clone, Eq, PartialEq, ThisError)]
+pub enum Error {
+    #[error("{0}")]
     SerenityError(String),
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     RwLock(String),
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Giveaway(String),
 }
 
 impl From<SerenityError> for Error {
     fn from(err: SerenityError) -> Error {
         let description = err.to_string();
-        let kind = ErrorKind::SerenityError(description);
-        Error::from(Context::new(kind))
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error::from(Context::new(kind))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
+        Error::SerenityError(description)
     }
 }
 
@@ -78,10 +27,9 @@ impl<T> From<TryLockError<T>> for Error {
     fn from(err: TryLockError<T>) -> Error {
         let description = match err {
             TryLockError::Poisoned(e) => format!("The RwLock poisoned for {:?}.", e),
-            TryLockError::WouldBlock => format!("Can't acquire RwLock for read/write."),
+            TryLockError::WouldBlock => "Can't acquire RwLock for read/write.".to_string(),
         };
-        let kind = ErrorKind::RwLock(description);
-        Error::from(Context::new(kind))
+        Error::RwLock(description)
     }
 }
 

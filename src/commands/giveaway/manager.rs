@@ -12,7 +12,7 @@ use crate::commands::giveaway::models::{
     Giveaway, ObjectState, Participant, ParticipantStats, Reward
 };
 use crate::commands::giveaway::strategies::RollOptions;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 
 // TODO: Filter out invalid or delete giveaways
 lazy_static! {
@@ -46,7 +46,7 @@ impl GiveawayManager {
             },
             false => {
                 let message = "The requested giveaway was not found.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -77,7 +77,7 @@ impl GiveawayManager {
 
                 if user.id.get() != giveaway.owner().get_user_id() {
                     let message = "For deleting this giveaway you need to be its owner.".to_string();
-                    return Err(Error::from(ErrorKind::Giveaway(message)));
+                    return Err(Error::Giveaway(message));
                 }
                 
                 giveaway.mark_as_deleted();
@@ -85,7 +85,7 @@ impl GiveawayManager {
             }
             false => {
                 let message = "The requested giveaway was not found.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -242,13 +242,13 @@ impl GiveawayManager {
                     None => {
                         stats.insert(user_id, ParticipantStats::new());
                         let message = "The reward must be rolled before confirming.".to_string();
-                        Err(Error::from(ErrorKind::Giveaway(message)))
+                        Err(Error::Giveaway(message))
                     }
                 }
             }
             false => {
                 let message = "The requested reward was not found.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -276,13 +276,13 @@ impl GiveawayManager {
                     None => {
                         stats.insert(user_id, ParticipantStats::new());
                         let message = "The reward must be rolled before return.".to_string();
-                        Err(Error::from(ErrorKind::Giveaway(message)))
+                        Err(Error::Giveaway(message))
                     }
                 }
             }
             false => {
                 let message = "The requested reward was not found.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -355,7 +355,7 @@ impl GiveawayManager {
         match reward.object_state() {
             ObjectState::Activated => {
                 let message = "The reward has been activated already.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
             ObjectState::Pending => match pending_rewards.contains(&reward.id()) {
                 true => {
@@ -366,12 +366,12 @@ impl GiveawayManager {
                 }
                 false => {
                     let message = "This reward can't be activated by others.".to_string();
-                    Err(Error::from(ErrorKind::Giveaway(message)))
+                    Err(Error::Giveaway(message))
                 }
             },
             ObjectState::Unused => {
                 let message = "The reward must be rolled before confirming.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -386,7 +386,7 @@ impl GiveawayManager {
         match reward.object_state() {
             ObjectState::Activated => {
                 let message = "The reward has been activated already.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
             ObjectState::Pending => match pending_rewards.contains(&reward.id()) {
                 true => {
@@ -396,12 +396,12 @@ impl GiveawayManager {
                 }
                 false => {
                     let message = "This reward can't be returned by others.".to_string();
-                    Err(Error::from(ErrorKind::Giveaway(message)))
+                    Err(Error::Giveaway(message))
                 }
             },
             ObjectState::Unused => {
                 let message = "The reward must be rolled before return.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -449,7 +449,7 @@ impl GiveawayManager {
     fn check_giveaway_owner(&self, user: &DiscordUser, giveaway: &Giveaway) -> Result<()> {
         if user.id.get() != giveaway.owner().get_user_id() {
             let message = "For interacting with this giveaway you need to be its owner.".to_string();
-            return Err(Error::from(ErrorKind::Giveaway(message)));
+            return Err(Error::Giveaway(message));
         }
 
         Ok(())
@@ -459,7 +459,7 @@ impl GiveawayManager {
         if !giveaway.is_activated() {
             let message =
                 "The giveaway hasn't started yet or has been suspended by the owner.".to_string();
-            return Err(Error::from(ErrorKind::Giveaway(message)));
+            return Err(Error::Giveaway(message));
         }
 
         Ok(())
@@ -475,7 +475,7 @@ mod tests {
     use crate::commands::giveaway::models::{
         Giveaway, ObjectState, Reward, OUTPUT_AFTER_GIVEAWAY_COMMANDS,
     };
-    use crate::error::{Error, ErrorKind};
+    use crate::error::{Error};
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
@@ -514,7 +514,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -542,7 +542,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For deleting this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For deleting this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -555,7 +555,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -584,7 +584,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -600,7 +600,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -630,7 +630,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -646,7 +646,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -674,7 +674,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -690,7 +690,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -719,7 +719,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -735,7 +735,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -765,7 +765,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -781,7 +781,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -813,7 +813,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested reward was not found.".to_string()))
+            Error::Giveaway("The requested reward was not found.".to_string())
         );
     }
 
@@ -829,7 +829,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("For interacting with this giveaway you need to be its owner.".to_string()))
+            Error::Giveaway("For interacting with this giveaway you need to be its owner.".to_string())
         );
     }
 
@@ -882,7 +882,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string()))
+            Error::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string())
         );
     }
 
@@ -914,7 +914,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -929,7 +929,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string()))
+            Error::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string())
         );
     }
 
@@ -947,7 +947,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested reward was not found.".to_string()))
+            Error::Giveaway("The requested reward was not found.".to_string())
         );
     }
 
@@ -967,7 +967,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward has been activated already.".to_string()))
+            Error::Giveaway("The reward has been activated already.".to_string())
         );
     }
 
@@ -990,7 +990,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("This reward can't be activated by others.".to_string()))
+            Error::Giveaway("This reward can't be activated by others.".to_string())
         );
     }
 
@@ -1011,7 +1011,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward must be rolled before confirming.".to_string()))
+            Error::Giveaway("The reward must be rolled before confirming.".to_string())
         );
     }
 
@@ -1031,7 +1031,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward must be rolled before confirming.".to_string()))
+            Error::Giveaway("The reward must be rolled before confirming.".to_string())
         );
     }
 
@@ -1063,7 +1063,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested giveaway was not found.".to_string()))
+            Error::Giveaway("The requested giveaway was not found.".to_string())
         );
     }
 
@@ -1078,7 +1078,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string()))
+            Error::Giveaway("The giveaway hasn't started yet or has been suspended by the owner.".to_string())
         );
     }
 
@@ -1096,7 +1096,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested reward was not found.".to_string()))
+            Error::Giveaway("The requested reward was not found.".to_string())
         );
     }
 
@@ -1116,7 +1116,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward has been activated already.".to_string()))
+            Error::Giveaway("The reward has been activated already.".to_string())
         );
     }
 
@@ -1139,7 +1139,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("This reward can't be returned by others.".to_string()))
+            Error::Giveaway("This reward can't be returned by others.".to_string())
         );
     }
 
@@ -1158,7 +1158,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward must be rolled before return.".to_string()))
+            Error::Giveaway("The reward must be rolled before return.".to_string())
         );
     }
 
@@ -1178,7 +1178,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The reward must be rolled before return.".to_string()))
+            Error::Giveaway("The reward must be rolled before return.".to_string())
         );
     }
 

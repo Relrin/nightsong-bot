@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::commands::giveaway::models::{ConcurrencyReward, ObjectState, Reward};
 use crate::commands::giveaway::strategies::base::{GiveawayStrategy, RollOptions};
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 
 #[derive(Debug)]
 pub struct ManualSelectStrategy;
@@ -17,7 +17,7 @@ impl ManualSelectStrategy {
         if options.rewards().lock().unwrap().len() == 0 {
             let message = "The giveaway doesn't have any rewards. Please, add rewards \
                 or ask to do an owner.".to_string();
-            return Err(Error::from(ErrorKind::Giveaway(message)));
+            return Err(Error::Giveaway(message));
         }
 
         Ok(())
@@ -48,7 +48,7 @@ impl ManualSelectStrategy {
             let message = "It's not possible to have more than one reward in \
                 the pending state. Please, activate the previous reward, \
                 or invoke the `!groll` command.".to_string();
-            return Err(Error::from(ErrorKind::Giveaway(message)));
+            return Err(Error::Giveaway(message));
         }
 
         Ok(())
@@ -68,7 +68,7 @@ impl ManualSelectStrategy {
 
         if no_unused_rewards {
             let message = format!("All possible rewards have been handed out.");
-            return Err(Error::from(ErrorKind::Giveaway(message)));
+            return Err(Error::Giveaway(message));
         }
 
         Ok(())
@@ -84,14 +84,14 @@ impl ManualSelectStrategy {
 
                 if reward.object_state() != ObjectState::Unused {
                     let message = "This reward has already been taken by someone.".to_string();
-                    return Err(Error::from(ErrorKind::Giveaway(message)));
+                    return Err(Error::Giveaway(message));
                 }
 
                 Ok(reward)
             }
             false => {
                 let message = "The requested reward was not found.".to_string();
-                Err(Error::from(ErrorKind::Giveaway(message)))
+                Err(Error::Giveaway(message))
             }
         }
     }
@@ -123,7 +123,7 @@ mod tests {
     use crate::commands::giveaway::strategies::{
         GiveawayStrategy, ManualSelectStrategy, RollOptions,
     };
-    use crate::error::{Error, ErrorKind};
+    use crate::error::Error;
 
     fn get_user(user_id: u64, username: &str) -> DiscordUser {
         let mut current_user = CurrentUser::default();
@@ -159,8 +159,8 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The giveaway doesn't have any rewards. Please, add rewards \
-                or ask to do an owner.".to_string()))
+            Error::Giveaway("The giveaway doesn't have any rewards. Please, add rewards \
+                or ask to do an owner.".to_string())
         );
     }
 
@@ -189,9 +189,9 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("It's not possible to have more than one reward in \
+            Error::Giveaway("It's not possible to have more than one reward in \
                 the pending state. Please, activate the previous reward, \
-                or invoke the `!groll` command.".to_string()))
+                or invoke the `!groll` command.".to_string())
         );
     }
 
@@ -222,7 +222,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("All possible rewards have been handed out.".to_string()))
+            Error::Giveaway("All possible rewards have been handed out.".to_string())
         );
     }
 
@@ -251,7 +251,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("This reward has already been taken by someone.".to_string()))
+            Error::Giveaway("This reward has already been taken by someone.".to_string())
         );
     }
 
@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(result.is_err(), true);
         assert_eq!(
             result.unwrap_err(),
-            Error::from(ErrorKind::Giveaway("The requested reward was not found.".to_string()))
+            Error::Giveaway("The requested reward was not found.".to_string())
         );
     }
 }
