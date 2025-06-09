@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use dashmap::mapref::one::RefMut;
@@ -80,6 +81,7 @@ impl GiveawayManager {
                     return Err(Error::Giveaway(message));
                 }
                 
+                // TODO: When orx-concurrent-vec will add full-feature removal, rollback to normal behavior
                 giveaway.mark_as_deleted();
                 Ok(())
             }
@@ -456,7 +458,7 @@ impl GiveawayManager {
     }
 
     fn check_giveaway_is_active(&self, giveaway: &Giveaway) -> Result<()> {
-        if !giveaway.is_activated() {
+        if !giveaway.is_activated() && !giveaway.is_deleted() {
             let message =
                 "The giveaway hasn't started yet or has been suspended by the owner.".to_string();
             return Err(Error::Giveaway(message));

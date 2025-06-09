@@ -174,6 +174,12 @@ impl Giveaway {
         self.active.load(Ordering::SeqCst)
     }
 
+    // Checks that the giveaway has been marked as deleted.
+    // And therefore it should not be available for any interactions
+    pub fn is_deleted(&self) -> bool {
+        self.is_deleted.load(Ordering::SeqCst)
+    }
+
     // Starts the giveaway.
     pub fn activate(&self) {
         self.active.store(true, Ordering::SeqCst)
